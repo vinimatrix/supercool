@@ -7,11 +7,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tracing_subscriber;
 
-mod ffmpeg;
-mod lib;
-mod pipeline;
+use supercool_nle::ffmpeg;
+use supercool_nle::pipeline;
 
 #[derive(Clone)]
 struct AppState {
@@ -73,14 +71,14 @@ async fn concat_handler(
 ) -> Result<Json<OperationResponse>, StatusCode> {
     let working_dir = state.working_dir.lock().await.clone();
     let output_path = format!("{}/{}", working_dir, request.output);
-    
+
     match ffmpeg::concat::concat_clips(&request.clips, &output_path, &working_dir).await {
         Ok(_) => Ok(Json(OperationResponse {
             success: true,
             output: output_path,
             message: "Clips concatenated successfully".to_string(),
         })),
-        Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -92,14 +90,14 @@ async fn transcode_handler(
     let input_path = format!("{}/{}", working_dir, request.input);
     let output_path = format!("{}/{}", working_dir, request.output);
     let fps = request.fps.unwrap_or(24);
-    
+
     match ffmpeg::transcode::transcode_to_24fps(&input_path, &output_path, fps).await {
         Ok(_) => Ok(Json(OperationResponse {
             success: true,
             output: output_path,
             message: format!("Video transcoded to {}fps", fps),
         })),
-        Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -111,14 +109,21 @@ async fn mix_audio_handler(
     let dialogue_path = format!("{}/{}", working_dir, request.dialogue);
     let music_path = format!("{}/{}", working_dir, request.music);
     let output_path = format!("{}/{}", working_dir, request.output);
-    
-    match ffmpeg::audio::mix_audio(&dialogue_path, &music_path, &output_path, request.ducking.unwrap_or(false)).await {
+
+    match ffmpeg::audio::mix_audio(
+        &dialogue_path,
+        &music_path,
+        &output_path,
+        request.ducking.unwrap_or(false),
+    )
+    .await
+    {
         Ok(_) => Ok(Json(OperationResponse {
             success: true,
             output: output_path,
             message: "Audio mixed successfully".to_string(),
         })),
-        Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
@@ -128,25 +133,25 @@ async fn pipeline_handler(
 ) -> Result<Json<OperationResponse>, StatusCode> {
     let working_dir = state.working_dir.lock().await.clone();
     let fps = request.fps.unwrap_or(24);
-    
+
     match pipeline::run_pipeline(&request.scenes, &request.output, &working_dir, fps).await {
         Ok(_) => Ok(Json(OperationResponse {
             success: true,
             output: request.output,
             message: "Pipeline completed successfully".to_string(),
         })),
-        Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(_e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt::init();
-    
+
     let state = AppState {
         working_dir: Arc::new(Mutex::new("/tmp/supercool-nle".to_string())),
     };
-    
+
     let app = Router::new()
         .route("/nle/health", get(health))
         .route("/nle/concat", post(concat_handler))
@@ -154,7 +159,7 @@ async fn main() {
         .route("/nle/mix-audio", post(mix_audio_handler))
         .route("/nle/pipeline", post(pipeline_handler))
         .with_state(state);
-    
+
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
     tracing::info!("NLE engine listening on port 3001");
     axum::serve(listener, app).await.unwrap();
