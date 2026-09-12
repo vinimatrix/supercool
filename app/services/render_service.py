@@ -1,5 +1,6 @@
 """Render service for orchestrating shot rendering via the NLE client."""
 
+import uuid
 from datetime import datetime
 
 from sqlalchemy import select
@@ -29,7 +30,7 @@ class RenderService:
         3. Submit a pipeline request to the NLE server.
         4. Return the created job.
         """
-        shot = await self.db.get(Shot, shot_id)
+        shot = await self.db.get(Shot, uuid.UUID(shot_id))
         if not shot:
             raise ValueError(f"Shot {shot_id} not found")
 
@@ -53,14 +54,13 @@ class RenderService:
             }
         )
 
-        job.status = "SUBMITTED"
         await self.db.commit()
         await self.db.refresh(job)
         return RenderJobRead.model_validate(job)
 
     async def get_job(self, job_id: str) -> RenderJobRead | None:
         """Get a render job by ID."""
-        job = await self.db.get(RenderJob, job_id)
+        job = await self.db.get(RenderJob, uuid.UUID(job_id))
         if not job:
             return None
         return RenderJobRead.model_validate(job)

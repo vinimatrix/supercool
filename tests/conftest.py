@@ -79,6 +79,22 @@ CREATE TABLE IF NOT EXISTS shots (
 )
 """
 
+CREATE_RENDER_JOBS = """
+CREATE TABLE IF NOT EXISTS render_jobs (
+    id TEXT PRIMARY KEY,
+    shot_id TEXT NOT NULL,
+    engine_name VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'QUEUED',
+    output_url TEXT,
+    qa_score DECIMAL(4,3),
+    qa_feedback TEXT,
+    retry_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY(shot_id) REFERENCES shots(id) ON DELETE CASCADE
+)
+"""
+
 
 @pytest.fixture
 def app():
@@ -94,6 +110,7 @@ async def client(app):
         await conn.execute(text(CREATE_CHARACTERS))
         await conn.execute(text(CREATE_ANCHOR_FACES))
         await conn.execute(text(CREATE_SHOTS))
+        await conn.execute(text(CREATE_RENDER_JOBS))
     test_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
