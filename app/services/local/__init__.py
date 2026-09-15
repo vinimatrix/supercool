@@ -1,13 +1,12 @@
 """Local video analysis services using open-source AI models."""
 
-from app.services.local.clip_analyzer import CLIPAnalyzer
-from app.services.local.florence_analyzer import FlorenceAnalyzer
-from app.services.local.qwen_analyzer import QwenAnalyzer
-from app.services.local.coordinator import LocalVideoCoordinator
-
 __all__ = [
     "CLIPAnalyzer",
-    "FlorenceAnalyzer",
-    "QwenAnalyzer",
-    "LocalVideoCoordinator",
 ]
+
+
+def __getattr__(name: str):
+    if name == "CLIPAnalyzer":
+        from app.services.local.clip_analyzer import CLIPAnalyzer
+        return CLIPAnalyzer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
