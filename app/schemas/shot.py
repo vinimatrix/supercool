@@ -26,6 +26,7 @@ class ShotRead(BaseModel):
     prompt_text: str
     injected_prompt: str | None = None
     dialogue_text: str | None = None
+    video_path: str | None = None
     speaker_character_id: UUID | None = None
     status: str
     created_at: datetime

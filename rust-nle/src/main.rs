@@ -149,7 +149,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let state = AppState {
-        working_dir: Arc::new(Mutex::new("/tmp/supercool-nle".to_string())),
+        working_dir: Arc::new(Mutex::new("C:/Users/vm004458/Documents/supercool/workspace".to_string())),
     };
 
     let app = Router::new()

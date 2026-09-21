@@ -21,6 +21,7 @@ class Shot(Base):
     prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
     injected_prompt: Mapped[str | None] = mapped_column(Text)
     dialogue_text: Mapped[str | None] = mapped_column(Text)
+    video_path: Mapped[str | None] = mapped_column(String(500))
     speaker_character_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("characters.id", ondelete="SET NULL"))
     status: Mapped[str] = mapped_column(String(50), default="PENDING")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

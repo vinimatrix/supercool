@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,6 +18,7 @@ class Character(Base):
     biography: Mapped[str | None] = mapped_column(Text)
     locked_traits: Mapped[list] = mapped_column(JSONB, default=list)
     voice_profile_id: Mapped[str | None] = mapped_column(String(255))
+    embedding = mapped_column(Vector(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -32,6 +34,7 @@ class AnchorFace(Base):
     image_url: Mapped[str] = mapped_column(Text, nullable=False)
     view_angle: Mapped[str | None] = mapped_column(String(50))
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+    embedding = mapped_column(Vector(512), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     character = relationship("Character", back_populates="anchor_faces")

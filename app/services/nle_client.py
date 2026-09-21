@@ -15,7 +15,7 @@ class NLEClient:
         """Check if the NLE server is reachable."""
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{self.base_url}/health")
+                resp = await client.get(f"{self.base_url}/nle/health")
                 resp.raise_for_status()
                 return True
         except httpx.HTTPError:
@@ -25,7 +25,7 @@ class NLEClient:
         """Concatenate video clips into a single output file."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/api/v1/concat",
+                f"{self.base_url}/nle/concat",
                 json={"clips": clips, "output": output_path},
             )
             resp.raise_for_status()
@@ -37,7 +37,7 @@ class NLEClient:
         """Transcode a video file with optional frame rate conversion."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/api/v1/transcode",
+                f"{self.base_url}/nle/transcode",
                 json={"input": input_path, "output": output_path, "fps": fps},
             )
             resp.raise_for_status()
@@ -47,7 +47,7 @@ class NLEClient:
         """Mix multiple audio tracks into a single output file."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/api/v1/mix_audio",
+                f"{self.base_url}/nle/mix_audio",
                 json={"tracks": tracks, "output": output_path},
             )
             resp.raise_for_status()
@@ -57,7 +57,7 @@ class NLEClient:
         """Execute a full render pipeline with the given config."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/api/v1/pipeline",
+                f"{self.base_url}/nle/pipeline",
                 json=config,
             )
             resp.raise_for_status()

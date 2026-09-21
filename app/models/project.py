@@ -20,14 +20,5 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if self.fps is None:
-            self.fps = 24
-        if self.target_resolution is None:
-            self.target_resolution = "4K"
-        if self.aspect_ratio is None:
-            self.aspect_ratio = "16:9"
-
     characters = relationship("Character", back_populates="project", cascade="all, delete-orphan")
     scenes = relationship("Scene", back_populates="project", cascade="all, delete-orphan")

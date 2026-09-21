@@ -5,10 +5,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.models.character import AnchorFace, Character
+from app.models.character import Character
 from app.models.scene import Scene
-from app.schemas.character import AnchorFaceCreate, AnchorFaceRead, CharacterCreate, CharacterRead
+from app.models.shot import Shot
+from app.schemas.character import CharacterCreate, CharacterRead
 from app.schemas.scene import SceneCreate, SceneRead
+from app.schemas.shot import ShotRead
 
 router = APIRouter(tags=["scenes"])
 
@@ -37,10 +39,7 @@ async def create_character(project_id: UUID, data: CharacterCreate, db: AsyncSes
     return character
 
 
-@router.post("/characters/{character_id}/anchor-faces", response_model=AnchorFaceRead)
-async def create_anchor_face(character_id: UUID, data: AnchorFaceCreate, db: AsyncSession = Depends(get_db)):
-    face = AnchorFace(character_id=character_id, **data.model_dump())
-    db.add(face)
-    await db.commit()
-    await db.refresh(face)
-    return face
+@router.get("/projects/{project_id}/characters", response_model=list[CharacterRead])
+async def list_characters(project_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Character).where(Character.project_id == project_id))
+    return result.scalars().all()
