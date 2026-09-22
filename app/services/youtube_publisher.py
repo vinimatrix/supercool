@@ -4,13 +4,12 @@ Uses YouTube Data API v3 for resumable uploads, metadata binding,
 and thumbnail setting. Supports simulation mode for testing.
 """
 
-import os
 import json
 import mimetypes
+import os
 from pathlib import Path
 
 import httpx
-
 
 YOUTUBE_UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 YOUTUBE_THUMBNAIL_URL = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set"
@@ -142,7 +141,7 @@ class YouTubePublisher:
         with httpx.Client(timeout=60) as client:
             with open(thumbnail_path, "rb") as f:
                 resp = client.post(
-                    f"{YOUTUBE_BASE_URL}/videos",
+                    YOUTUBE_THUMBNAIL_URL,
                     params={"videoId": video_id},
                     headers={
                         "Authorization": f"Bearer {self.access_token}",

@@ -1,3 +1,5 @@
+import json
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -8,6 +10,32 @@ class Entity:
     entity_type: str  # "character", "location", "prop"
     traits: list[str] = field(default_factory=list)
     confidence: float = 0.0
+
+
+def _parse_entities(raw: str) -> list[Entity]:
+    """Parse LLM response into Entity list, handling JSON or text."""
+    try:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```\w*\n?", "", text)
+            text = re.sub(r"\n?```$", "", text)
+        items = json.loads(text)
+        if isinstance(items, dict) and "entities" in items:
+            items = items["entities"]
+        if not isinstance(items, list):
+            return []
+        return [
+            Entity(
+                name=e.get("name", ""),
+                entity_type=e.get("entity_type", e.get("type", "prop")),
+                traits=e.get("traits", []),
+                confidence=float(e.get("confidence", 0.5)),
+            )
+            for e in items
+            if e.get("name")
+        ]
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return []
 
 
 class LLMProvider(ABC):

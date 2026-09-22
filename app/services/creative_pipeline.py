@@ -1,16 +1,15 @@
 """Creative Pipeline - Full AI-powered creative editing pipeline."""
 
-import os
-import json
 import asyncio
+import json
+import os
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.services.director_ai import DirectorAI, StoryArc
-from app.services.creative_editor import CreativeEditor, ClipEdit, TransitionType
 from app.services.audio_engine import AudioEngine, AudioTrack, SoundLayer
+from app.services.creative_editor import ClipEdit, CreativeEditor, TransitionType
+from app.services.director_ai import DirectorAI
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -153,6 +152,27 @@ class CreativePipeline:
             shutil.copy2(video_output, final_output)
 
         # Summary
+        timeline_segments = []
+        speed_adjustments = []
+        color_grades = []
+        for i, clip in enumerate(edit_plan.get("clips", [])):
+            timeline_segments.append({
+                "clip_index": i,
+                "clip_start": 0,
+                "clip_end": clip.get("duration", 0),
+            })
+            speed_adjustments.append(clip.get("speed", 1.0))
+            color_grades.append(clip.get("color_grade"))
+
+        transition_points = []
+        for i in range(len(edit_plan.get("clips", [])) - 1):
+            transition_points.append({
+                "from_shot": i,
+                "to_shot": i + 1,
+                "type": edit_plan["clips"][i].get("transition", "cut"),
+                "duration": edit_plan["clips"][i].get("transition_duration", 0.5),
+            })
+
         result = {
             "final_output": final_output,
             "video_only": video_output,
@@ -160,7 +180,13 @@ class CreativePipeline:
             "shots": len(clip_paths),
             "mood": story_arc.overall_mood,
             "music_crescendo": story_arc.suggested_music_crescendo,
-            "edit_plan": edit_plan,
+            "edit_plan": {
+                **edit_plan,
+                "timeline_segments": timeline_segments,
+                "speed_adjustments": speed_adjustments,
+                "color_grades": color_grades,
+                "transition_points": transition_points,
+            },
         }
 
         print("\n" + "=" * 50)
@@ -180,7 +206,7 @@ class CreativePipeline:
 
 
 if __name__ == "__main__":
-    workspace = r"C:\Users\vm004458\Documents\supercool\workspace"
+    workspace = str(BASE_DIR / "workspace")
 
     clips = [
         os.path.join(workspace, "shot1_energy_burst.mp4"),

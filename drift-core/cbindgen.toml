@@ -1,0 +1,11 @@
+language = "C"
+
+[defines]
+"feature = default" = "DRIFT_CORE_ENABLE_DEFAULT"
+
+[export]
+include = ["drift_check_ffmpeg", "drift_version", "drift_free_string", "drift_concat_clips", "drift_transcode", "drift_mix_audio", "drift_run_pipeline", "DriftScene"]
+exclude = []
+
+[export.rename]
+"DriftScene" = "DriftScene"

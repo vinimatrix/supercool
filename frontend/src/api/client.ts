@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api/v1' });
+export const api = axios.create({ baseURL: '/api/v1' });
 
 export interface Project {
   id: string;
@@ -19,15 +19,6 @@ export interface Character {
   biography: string | null;
   locked_traits: string[];
   voice_profile_id: string | null;
-}
-
-export interface AnchorFace {
-  id: string;
-  character_id: string;
-  image_url: string;
-  view_angle: string | null;
-  is_primary: boolean;
-  created_at: string;
 }
 
 export interface Scene {
@@ -75,21 +66,18 @@ export const charactersApi = {
   list: (projectId: string) => api.get<Character[]>(`/projects/${projectId}/characters`),
   create: (projectId: string, data: { name: string; locked_traits?: string[] }) =>
     api.post<Character>(`/projects/${projectId}/characters`, data),
-  update: (id: string, data: Partial<Character>) => api.put<Character>(`/characters/${id}`, data),
 };
 
 export const scenesApi = {
   list: (projectId: string) => api.get<Scene[]>(`/projects/${projectId}/scenes`),
   create: (projectId: string, data: { scene_number: number; title?: string; location?: string }) =>
     api.post<Scene>(`/projects/${projectId}/scenes`, data),
-  update: (id: string, data: Partial<Scene>) => api.put<Scene>(`/scenes/${id}`, data),
 };
 
 export const shotsApi = {
   list: (sceneId: string) => api.get<Shot[]>(`/scenes/${sceneId}/shots`),
   create: (sceneId: string, data: { shot_number: number; prompt_text: string; speaker_character_id?: string }) =>
     api.post<Shot>(`/scenes/${sceneId}/shots`, data),
-  update: (id: string, data: Partial<Shot>) => api.put<Shot>(`/shots/${id}`, data),
   uploadVideo: (shotId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -100,6 +88,15 @@ export const shotsApi = {
   assignVideo: (shotId: string, videoPath: string) =>
     api.put<Shot>(`/shots/${shotId}/assign-video`, { video_path: videoPath }),
 };
+
+export interface AnchorFace {
+  id: string;
+  character_id: string;
+  image_url: string;
+  view_angle: string | null;
+  is_primary: boolean;
+  created_at: string;
+}
 
 export const renderApi = {
   start: (shotId: string) => api.post<RenderJob>(`/shots/${shotId}/render`),
@@ -127,6 +124,10 @@ export interface CreativeRenderResult {
   shots: number;
   mood: string;
   music_crescendo: boolean;
+  timeline_segments: Array<{ clip_index: number; clip_start: number; clip_end: number }>;
+  speed_adjustments: number[];
+  color_grades: (string | null)[];
+  transition_points: Array<{ from_shot: number; to_shot: number; type: string; duration: number }>;
 }
 
 export interface WorkspaceFile {

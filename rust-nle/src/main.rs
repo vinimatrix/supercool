@@ -148,8 +148,19 @@ async fn pipeline_handler(
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    let working_dir = std::env::var("SUPERCOOL_WORKSPACE")
+        .unwrap_or_else(|_| {
+            let manifest_dir = env!("CARGO_MANIFEST_DIR");
+            std::path::Path::new(manifest_dir)
+                .parent()
+                .unwrap_or(std::path::Path::new("."))
+                .join("workspace")
+                .to_string_lossy()
+                .to_string()
+        });
+
     let state = AppState {
-        working_dir: Arc::new(Mutex::new("C:/Users/vm004458/Documents/supercool/workspace".to_string())),
+        working_dir: Arc::new(Mutex::new(working_dir)),
     };
 
     let app = Router::new()

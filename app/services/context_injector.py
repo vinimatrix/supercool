@@ -1,68 +1,135 @@
-"""Context Injector for prompt engineering with reference tagging and engine routing."""
+"""Production Context - Understands existing footage and provides context for editing."""
 
-ACTION_KEYWORDS = {"dash", "dodge", "fight", "strike", "slash", "combat", "kick", "punch", "jump", "run"}
-ATMOSPHERIC_KEYWORDS = {"stare", "speak", "sunset", "stand", "walk", "sit", "look", "gaze", "breathe"}
-NEGATIVE_PROMPT = "2d anime, cartoon, plastic skin, deformed scar, missing eye scar, altered cape color, extra fingers, distorted sword, face morphing between frames, 60fps video look"
-GLOBAL_STYLE = "photorealistic skin texture, cinematic 35mm lens, moody sunset lighting, 24fps film grain, 4k resolution"
+from dataclasses import dataclass, field
 
 
-class ContextInjector:
-    """Handles prompt injection with reference tagging, locked traits, and engine routing."""
+@dataclass
+class ShotContext:
+    """Context about a shot for the editing pipeline."""
 
-    def inject_locked_traits(self, prompt: str, traits: list[str]) -> str:
-        """Inject locked traits into the prompt."""
-        if not traits:
-            return prompt
-        traits_str = ", ".join(traits)
-        return f"{prompt} [{traits_str}]"
+    shot_id: str
+    description: str
+    characters_present: list[str] = field(default_factory=list)
+    props_visible: list[str] = field(default_factory=list)
+    environment: str = ""
+    mood: str = ""
+    dialogue: str = ""
+    speaker: str = ""
+    estimated_duration: float = 0.0
 
-    def get_negative_prompt(self) -> str:
-        """Return the negative prompt for image generation."""
-        return NEGATIVE_PROMPT
 
-    def get_global_style(self) -> str:
-        """Return the global style appendage."""
-        return GLOBAL_STYLE
+@dataclass
+class SceneContext:
+    """Context about a scene for narrative understanding."""
 
-    def detect_engine(self, prompt: str) -> str:
-        """Detect the appropriate engine based on prompt keywords."""
-        words = set(prompt.lower().split())
-        if words & ACTION_KEYWORDS:
-            return "SEEDANCE"
-        if words & ATMOSPHERIC_KEYWORDS:
-            return "FLOW"
-        return "SEEDANCE"
+    scene_id: str
+    scene_number: int
+    location: str = ""
+    time_of_day: str = ""
+    characters_involved: list[str] = field(default_factory=list)
+    summary: str = ""
+    emotional_arc: str = ""
 
-    def inject_reference_tag(self, prompt: str, ref_image: str, ip_adapter_scale: float = 0.85) -> str:
-        """Inject a reference image tag into the prompt."""
-        return f"{prompt} [INPUT_REF: {ref_image}, ip_adapter_scale={ip_adapter_scale}]"
 
-    def inject_global_style(self, prompt: str) -> str:
-        """Append global style to the prompt."""
-        return f"{prompt} {GLOBAL_STYLE}"
+# Mood detection keywords
+MOOD_KEYWORDS = {
+    "tense": {"tension", "suspense", "waiting", "quiet", "stillness"},
+    "action": {"fight", "chase", "run", "jump", "combat", "explosion"},
+    "romantic": {"love", "kiss", "embrace", "gentle", "soft"},
+    "melancholic": {"sad", "alone", "cry", "loss", "grief"},
+    "joyful": {"laugh", "celebrate", "dance", "smile", "happy"},
+}
 
-    def build_full_prompt(
-        self,
-        prompt: str,
-        locked_traits: list[str] | None = None,
-        ref_image: str | None = None,
-        ip_adapter_scale: float = 0.85,
-        include_style: bool = True,
-    ) -> str:
-        """Build a full prompt with all context injections."""
-        result = prompt
-        if locked_traits:
-            result = self.inject_locked_traits(result, locked_traits)
-        if ref_image:
-            result = self.inject_reference_tag(result, ref_image, ip_adapter_scale)
-        if include_style:
-            result = self.inject_global_style(result)
-        return result
 
-    def get_motion_scale(self, engine: str) -> float:
-        """Get the motion scale for the given engine."""
-        if engine == "SEEDANCE":
-            return 1.4
-        if engine == "FLOW":
-            return 0.8
-        return 1.0
+class ProductionContext:
+    """Provides context about the production for editing decisions.
+
+    This is NOT a prompt injector for video generation.
+    It understands existing footage and provides context to:
+    - Director AI: for edit planning and narrative understanding
+    - QA system: for consistency verification
+    - NLE engine: for assembly decisions
+    """
+
+    def get_shot_context(self, shot_data: dict) -> ShotContext:
+        """Build context from shot metadata and description.
+
+        Used by Director AI to understand what's in each shot
+        before making edit decisions.
+        """
+        description = shot_data.get("prompt_text", "")
+        dialogue = shot_data.get("dialogue_text", "")
+
+        return ShotContext(
+            shot_id=str(shot_data.get("id", "")),
+            description=description,
+            dialogue=dialogue,
+            mood=self._detect_mood(description),
+            estimated_duration=self._estimate_duration(description, dialogue),
+        )
+
+    def get_scene_context(self, scene_data: dict, shots: list[dict]) -> SceneContext:
+        """Build context for a scene from its shots.
+
+        Used to understand narrative flow across shots.
+        """
+        all_characters = set()
+        for shot in shots:
+            if shot.get("speaker_character_id"):
+                all_characters.add(str(shot["speaker_character_id"]))
+
+        return SceneContext(
+            scene_id=str(scene_data.get("id", "")),
+            scene_number=scene_data.get("scene_number", 0),
+            location=scene_data.get("location", ""),
+            time_of_day=scene_data.get("time_of_day", ""),
+            characters_involved=list(all_characters),
+            summary=scene_data.get("summary", ""),
+        )
+
+    def detect_mood(self, text: str) -> str:
+        """Detect the mood of a shot from its description."""
+        return self._detect_mood(text)
+
+    def _detect_mood(self, text: str) -> str:
+        """Internal mood detection based on keywords."""
+        words = set(text.lower().split())
+        for mood, keywords in MOOD_KEYWORDS.items():
+            if words & keywords:
+                return mood
+        return "neutral"
+
+    def _estimate_duration(self, description: str, dialogue: str = "") -> float:
+        """Estimate shot duration in seconds.
+
+        Dialogue shots are longer. Action shots are shorter.
+        """
+        base_duration = 5.0
+
+        # Dialogue adds time
+        if dialogue:
+            words = len(dialogue.split())
+            base_duration += words * 0.3  # ~0.3s per word
+
+        # Action keywords suggest faster cuts
+        action_words = {"fight", "chase", "run", "jump", "combat", "explosion"}
+        if set(description.lower().split()) & action_words:
+            base_duration *= 0.7
+
+        return base_duration
+
+    def get_narrative_context(self, previous_scenes: list[dict], current_scene: dict) -> str:
+        """Build narrative context from previous scenes.
+
+        Used by Director AI to maintain story continuity.
+        """
+        if not previous_scenes:
+            return f"Opening scene: {current_scene.get('location', 'unknown location')}"
+
+        last_scene = previous_scenes[-1]
+        return (
+            f"Previous scene: {last_scene.get('location', 'unknown')} "
+            f"(scene {last_scene.get('scene_number', '?')}). "
+            f"Current: Scene {current_scene.get('scene_number', '?')} "
+            f"at {current_scene.get('location', 'unknown location')}"
+        )

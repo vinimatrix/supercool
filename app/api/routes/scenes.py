@@ -1,16 +1,14 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.models.character import Character
 from app.models.scene import Scene
-from app.models.shot import Shot
 from app.schemas.character import CharacterCreate, CharacterRead
 from app.schemas.scene import SceneCreate, SceneRead
-from app.schemas.shot import ShotRead
 
 router = APIRouter(tags=["scenes"])
 
@@ -31,7 +29,9 @@ async def list_scenes(project_id: UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/projects/{project_id}/characters", response_model=CharacterRead)
-async def create_character(project_id: UUID, data: CharacterCreate, db: AsyncSession = Depends(get_db)):
+async def create_character(
+    project_id: UUID, data: CharacterCreate, db: AsyncSession = Depends(get_db)
+):
     character = Character(project_id=project_id, **data.model_dump())
     db.add(character)
     await db.commit()
@@ -43,3 +43,23 @@ async def create_character(project_id: UUID, data: CharacterCreate, db: AsyncSes
 async def list_characters(project_id: UUID, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Character).where(Character.project_id == project_id))
     return result.scalars().all()
+
+
+@router.delete("/scenes/{scene_id}", status_code=204)
+async def delete_scene(scene_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Scene).where(Scene.id == scene_id))
+    scene = result.scalar_one_or_none()
+    if not scene:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    await db.delete(scene)
+    await db.commit()
+
+
+@router.delete("/characters/{character_id}", status_code=204)
+async def delete_character(character_id: UUID, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Character).where(Character.id == character_id))
+    character = result.scalar_one_or_none()
+    if not character:
+        raise HTTPException(status_code=404, detail="Character not found")
+    await db.delete(character)
+    await db.commit()

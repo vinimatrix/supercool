@@ -1,40 +1,24 @@
-FROM nvidia/cuda:12.2.2-devel-ubuntu22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3.12 \
-    python3.12-venv \
-    python3-pip \
-    ffmpeg \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Rust (for NLE engine)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy Python dependencies
-COPY pyproject.toml .
-RUN pip3 install --break-system-packages uv && \
-    uv sync --no-dev
+# Install minimal system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy Rust NLE
-COPY rust-nle/ rust-nle/
-RUN cd rust-nle && cargo build --release
+# Copy requirements and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY app/ app/
-COPY alembic/ alembic/
-COPY alembic.ini .
+COPY . .
 
-# Create working directory for renders
-RUN mkdir -p /workspace/out
+# Create workspace directory
+RUN mkdir -p /app/workspace
 
-EXPOSE 8000
+# Expose port
+EXPOSE 8001
 
-CMD ["uv", "run", "uvicorn", "app.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]

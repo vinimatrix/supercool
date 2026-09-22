@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class SoundLayer(Enum):
@@ -199,7 +200,7 @@ class AudioEngine:
 
 if __name__ == "__main__":
     engine = AudioEngine()
-    workspace = r"C:\Users\vm004458\Documents\supercool\workspace"
+    workspace = str(Path(__file__).resolve().parent.parent.parent / "workspace")
     
     # Generate tension bed
     print("Generating tension bed...")

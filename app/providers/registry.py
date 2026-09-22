@@ -2,6 +2,7 @@ from app.providers.base import LLMProvider
 from app.providers.google import GoogleProvider
 from app.providers.openai import OpenAIProvider
 from app.providers.nvidia import NVIDIAProvider
+from app.providers.groq import GroqProvider
 from app.config import settings
 
 
@@ -15,8 +16,10 @@ class ProviderRegistry:
                 providers["openai"] = OpenAIProvider()
             if settings.nvidia_api_key:
                 providers["nvidia"] = NVIDIAProvider()
+            if settings.groq_api_key:
+                providers["groq"] = GroqProvider()
         self._providers = providers
-        self._fallback_order = ["google", "openai", "nvidia"]
+        self._fallback_order = ["groq", "nvidia", "google", "openai"]
 
     def get_provider(self, name: str | None = None) -> LLMProvider | None:
         if name and name in self._providers:

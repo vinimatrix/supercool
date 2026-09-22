@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 
 class TransitionType(Enum):
@@ -213,7 +214,7 @@ def create_montage(input_paths: list[str], output_path: str) -> str:
 if __name__ == "__main__":
     import sys
     
-    workspace = r"C:\Users\vm004458\Documents\supercool\workspace"
+    workspace = str(Path(__file__).resolve().parent.parent.parent / "workspace")
     clips = [
         os.path.join(workspace, "shot1_energy_burst.mp4"),
         os.path.join(workspace, "shot5_final.mp4"),

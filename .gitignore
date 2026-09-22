@@ -1,5 +1,90 @@
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
 .ruff_cache/
 target/
+
+# Python venv
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Large model files
+models/**/*.pth
+models/**/*.pt
+models/**/*.bin
+models/**/*.safetensors
+models/**/*.onnx
+models/**/*.onnx_data
+models/**/config.json
+models/**/preprocessor_config.json
+models/**/tokenizer.json
+models/**/vocab.*
+models/**/merges.*
+models/**/*.pkl
+models/**/*.tar
+models/**/.cache/
+models/**/download/
+models/**/*.metadata
+
+# External cloned repos (too large for git)
+models/CosyVoice/
+models/MuseTalk/
+models/stable-audio-tools/
+
+# Keep model directory structure placeholder only
+!models/
+
+# Workspace outputs
+workspace/audio/*.wav
+workspace/audio/*.mp3
+workspace/lipsync/
+workspace/exports/
+workspace/shots/
+workspace/pipeline_output/
+workspace/keyframes/
+workspace/*.mp4
+workspace/*.pkl
+workspace/concat.txt
+
+# Temp & logs
+*.log
+api.log
+test_supercool.db
+aqtinstall.log
+uploads/
+
+# Drift editor (compiled)
+drift-editor/
+drift-core/target/
+
+# Rust build
+rust-nle/target/
+rust-nle/Cargo.lock
+rust-nle/.cargo/
+
+# Frontend build
+frontend/node_modules/
+frontend/dist/
+
+# Docker volumes
+docker-data/
+
+# Download scripts (not source)
+download_models.py
+check_*.py
+create_scene.py
+process_*.py
+render_*.py
+start_renders.py
+test_*.py

@@ -1,9 +1,11 @@
 """Qwen Analyzer - Qualitative narrative analysis using Qwen2-VL 2B."""
 
-import json
 import base64
+import json
 import subprocess
+import sys
 from pathlib import Path
+
 import httpx
 
 
@@ -39,9 +41,10 @@ Respond in this JSON format:
         self._detect_backend()
 
     def _detect_backend(self):
+        cmd = "where" if sys.platform == "win32" else "which"
         try:
             result = subprocess.run(
-                ["which", "ollama"], capture_output=True, text=True, timeout=5
+                [cmd, "ollama"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
                 self.backend = "ollama"

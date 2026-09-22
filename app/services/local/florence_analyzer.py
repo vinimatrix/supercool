@@ -37,6 +37,10 @@ class FlorenceAnalyzer:
             self.model = AutoModelForCausalLM.from_pretrained(
                 "microsoft/Florence-2-base", trust_remote_code=True
             )
+            if not hasattr(self.model.config, "forced_bos_token_id"):
+                self.model.config.forced_bos_token_id = None
+            if not hasattr(self.model.generation_config, "forced_bos_token_id"):
+                self.model.generation_config.forced_bos_token_id = None
             self.processor = AutoProcessor.from_pretrained(
                 "microsoft/Florence-2-base", trust_remote_code=True
             )

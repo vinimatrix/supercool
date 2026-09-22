@@ -47,7 +47,7 @@ class NLEClient:
         """Mix multiple audio tracks into a single output file."""
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{self.base_url}/nle/mix_audio",
+                f"{self.base_url}/nle/mix-audio",
                 json={"tracks": tracks, "output": output_path},
             )
             resp.raise_for_status()

@@ -1,7 +1,7 @@
 """Creative Pipeline API - AI-powered editing endpoint."""
 
+import asyncio
 import os
-import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -31,6 +31,10 @@ class CreativeRenderResponse(BaseModel):
     shots: int
     mood: str
     music_crescendo: bool
+    timeline_segments: list[dict] = []
+    speed_adjustments: list[float] = []
+    color_grades: list[str | None] = []
+    transition_points: list[dict] = []
 
 
 @router.post("/creative/render", response_model=CreativeRenderResponse)
@@ -50,7 +54,10 @@ async def creative_render(data: CreativeRenderRequest):
             existing.append(str(full))
     
     if not existing:
-        raise HTTPException(status_code=400, detail=f"No valid clips found. Searched: {data.clip_paths}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"No valid clips found. Searched: {data.clip_paths}",
+        )
 
     pipeline = CreativePipeline()
     config = PipelineConfig(
@@ -62,7 +69,8 @@ async def creative_render(data: CreativeRenderRequest):
     )
 
     try:
-        result = pipeline.run(existing, config)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, pipeline.run, existing, config)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -73,6 +81,10 @@ async def creative_render(data: CreativeRenderRequest):
         shots=result["shots"],
         mood=result["mood"],
         music_crescendo=result["music_crescendo"],
+        timeline_segments=result["edit_plan"].get("timeline_segments", []),
+        speed_adjustments=result["edit_plan"].get("speed_adjustments", []),
+        color_grades=result["edit_plan"].get("color_grades", []),
+        transition_points=result["edit_plan"].get("transition_points", []),
     )
 
 
