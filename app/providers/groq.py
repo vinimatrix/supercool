@@ -2,8 +2,8 @@
 
 from groq import AsyncGroq
 
-from app.providers.base import LLMProvider, Entity, _parse_entities
 from app.config import settings
+from app.providers.base import Entity, LLMProvider, _parse_entities, format_character_block
 
 
 class GroqProvider(LLMProvider):
@@ -36,9 +36,7 @@ class GroqProvider(LLMProvider):
         if not self.client:
             return ""
 
-        char_info = "\n".join(
-            f"- {c['name']}: {', '.join(c.get('locked_traits', []))}" for c in characters
-        )
+        char_info = format_character_block(characters)
         prompt = f"""Generate a detailed cinematic prompt for this scene:
         {scene_description}
 

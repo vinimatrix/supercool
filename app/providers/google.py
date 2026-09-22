@@ -1,7 +1,10 @@
+import base64
+from pathlib import Path as _Path
+
 import httpx
 
-from app.providers.base import LLMProvider, Entity, _parse_entities
 from app.config import settings
+from app.providers.base import Entity, LLMProvider, _parse_entities, format_character_block
 
 
 class GoogleProvider(LLMProvider):
@@ -26,9 +29,7 @@ class GoogleProvider(LLMProvider):
             return _parse_entities(raw)
 
     async def generate_prompt(self, scene_description: str, characters: list[dict]) -> str:
-        char_info = "\n".join(
-            f"- {c['name']}: {', '.join(c.get('locked_traits', []))}" for c in characters
-        )
+        char_info = format_character_block(characters)
         prompt = f"""Generate a detailed cinematic prompt for this scene:
         {scene_description}
 
@@ -37,10 +38,22 @@ class GoogleProvider(LLMProvider):
 
         Include visual details, lighting, camera angle, mood."""
 
+        parts = [{"text": prompt}]
+        for c in characters:
+            sheet = resolve_sheet_path(c.get("reference_sheet_url"))
+            if sheet:
+                parts.append({
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": base64.b64encode(sheet.read_bytes()).decode(),
+                    }
+                })
+                break
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self.base_url}/models/gemini-2.0-flash:generateContent?key={self.api_key}",
-                json={"contents": [{"parts": [{"text": prompt}]}]},
+                json={"contents": [{"parts": parts}]},
                 timeout=30.0,
             )
             data = response.json()
@@ -48,3 +61,10 @@ class GoogleProvider(LLMProvider):
 
     async def health_check(self) -> bool:
         return bool(self.api_key)
+
+
+def resolve_sheet_path(url: str | None) -> _Path | None:
+    if not url:
+        return None
+    p = _Path(url.lstrip("/"))
+    return p if p.exists() else None

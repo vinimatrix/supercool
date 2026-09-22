@@ -4,6 +4,17 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 
+def format_character_block(characters: list[dict]) -> str:
+    lines = []
+    for c in characters:
+        traits = ", ".join(c.get("locked_traits", []))
+        lines.append(f"- {c['name']}: {traits}")
+        vp = c.get("visual_prompt")
+        if vp:
+            lines.append(f"VISUAL REFERENCE — {c['name']}: {vp}")
+    return "\n".join(lines)
+
+
 @dataclass
 class Entity:
     name: str

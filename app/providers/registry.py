@@ -1,9 +1,9 @@
+from app.config import settings
 from app.providers.base import LLMProvider
 from app.providers.google import GoogleProvider
-from app.providers.openai import OpenAIProvider
-from app.providers.nvidia import NVIDIAProvider
 from app.providers.groq import GroqProvider
-from app.config import settings
+from app.providers.nvidia import NVIDIAProvider
+from app.providers.openai import OpenAIProvider
 
 
 class ProviderRegistry:
