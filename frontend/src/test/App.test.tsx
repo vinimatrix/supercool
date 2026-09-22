@@ -39,14 +39,13 @@ describe('App', () => {
   it('renders the SUPERCOOL header', async () => {
     render(<App />);
 
-    expect(screen.getByText('SUPERCOOL')).toBeInTheDocument();
-    expect(screen.getByText('AI CINEMATIC STUDIO')).toBeInTheDocument();
+    expect(screen.getByText('Supercool Studio')).toBeInTheDocument();
   });
 
   it('renders the project selector', async () => {
     render(<App />);
 
-    expect(screen.getByText('Select project...')).toBeInTheDocument();
+    expect(screen.getByText('Select Active Project...')).toBeInTheDocument();
   });
 
   it('renders the Story Bible tab', async () => {
@@ -55,28 +54,40 @@ describe('App', () => {
     expect(screen.getByText('Story Bible')).toBeInTheDocument();
   });
 
-  it('renders the QA Monitor tab', async () => {
+  it('renders the QA tab', async () => {
     render(<App />);
 
-    expect(screen.getByText('QA Monitor')).toBeInTheDocument();
+    expect(screen.getByText('QA')).toBeInTheDocument();
   });
 
-  it('renders the Analytics tab', async () => {
+  it('renders the Data tab', async () => {
     render(<App />);
 
-    expect(screen.getByText('Analytics')).toBeInTheDocument();
+    expect(screen.getByText('Data')).toBeInTheDocument();
   });
 
-  it('renders the Direction Chat panel', async () => {
+  it('renders the YouTube tab', async () => {
     render(<App />);
 
-    expect(screen.getByText('Direction Chat')).toBeInTheDocument();
+    expect(screen.getByText('YT')).toBeInTheDocument();
   });
 
-  it('renders the 4K Preview panel', async () => {
+  it('renders the Drift tab', async () => {
     render(<App />);
 
-    expect(screen.getByText('4K Preview')).toBeInTheDocument();
+    expect(screen.getByText('Drift')).toBeInTheDocument();
+  });
+
+  it('renders the Command Center', async () => {
+    render(<App />);
+
+    expect(screen.getByText('Command Center')).toBeInTheDocument();
+  });
+
+  it('renders the 4K Preview placeholder', async () => {
+    render(<App />);
+
+    expect(screen.getByText('NO SIGNAL')).toBeInTheDocument();
   });
 
   it('renders the Shot Timeline panel', async () => {
@@ -102,7 +113,7 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText('Start directing your film')).toBeInTheDocument();
+      expect(screen.getByText('WAITING FOR INPUT')).toBeInTheDocument();
     });
   });
 });

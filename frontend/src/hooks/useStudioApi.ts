@@ -6,14 +6,9 @@ import {
   shotsApi,
   renderApi,
   anchorFacesApi,
-  creativeApi,
-  type Project,
-  type Character,
-  type Scene,
-  type Shot,
-  type AnchorFace,
-  type CreativeRenderResult
+  creativeApi
 } from '../api/client';
+import type { Character, Scene, Shot } from '../api/client';
 
 export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error' | 'info') => void) => {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});

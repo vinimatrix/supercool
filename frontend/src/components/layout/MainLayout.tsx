@@ -8,34 +8,30 @@ import { RenderOverlay } from '../shared/RenderOverlay';
 import { useStudioContext } from '../../context/StudioContext';
 
 interface MainLayoutProps {
-  creativeResult: any;
-  isRendering: boolean;
-  onRender: () => Promise<void>;
-  renderCount: number;
-  shots: any[];
-  selectedSceneId: string | null;
-  newShotPrompt: string;
-  setNewShotPrompt: (val: string) => void;
   onCreateShot: () => Promise<void>;
   onUpdateShot: (id: string, data: any) => Promise<void>;
-  chatMessages: any[];
   onSendMessage: (text: string) => void;
+  onRender: () => Promise<void>;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
-  creativeResult,
-  isRendering,
-  onRender,
-  renderCount,
-  shots,
-  selectedSceneId,
-  newShotPrompt,
-  setNewShotPrompt,
   onCreateShot,
   onUpdateShot,
-  chatMessages,
-  onSendMessage
+  onSendMessage,
+  onRender
 }) => {
+  const {
+    creativeResult,
+    isRendering,
+    shots,
+    selectedSceneId,
+    newShotPrompt,
+    setNewShotPrompt,
+    chatMessages
+  } = useStudioContext();
+
+  const renderCount = shots.filter(s => s.video_path).length;
+
   return (
     <div className="h-screen flex flex-col overflow-hidden relative" style={{ backgroundColor: 'var(--color-base)', color: 'var(--color-text-main)' }}>
       <RenderOverlay isRendering={isRendering} />
@@ -54,7 +50,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             setNewShotPrompt={setNewShotPrompt}
             onCreateShot={onCreateShot}
             onUpdateShot={onUpdateShot}
-            loading={false} // Simplified for now, can be linked to useStudioApi
+            loading={false}
           />
         </main>
 

@@ -66,18 +66,21 @@ export const charactersApi = {
   list: (projectId: string) => api.get<Character[]>(`/projects/${projectId}/characters`),
   create: (projectId: string, data: { name: string; locked_traits?: string[] }) =>
     api.post<Character>(`/projects/${projectId}/characters`, data),
+  update: (id: string, data: Partial<Character>) => api.put<Character>(`/characters/${id}`, data),
 };
 
 export const scenesApi = {
   list: (projectId: string) => api.get<Scene[]>(`/projects/${projectId}/scenes`),
-  create: (projectId: string, data: { scene_number: number; title?: string; location?: string }) =>
+  create: (projectId: string, data: { scene_number: number; title?: string }) =>
     api.post<Scene>(`/projects/${projectId}/scenes`, data),
+  update: (id: string, data: Partial<Scene>) => api.put<Scene>(`/scenes/${id}`, data),
 };
 
 export const shotsApi = {
   list: (sceneId: string) => api.get<Shot[]>(`/scenes/${sceneId}/shots`),
   create: (sceneId: string, data: { shot_number: number; prompt_text: string; speaker_character_id?: string }) =>
     api.post<Shot>(`/scenes/${sceneId}/shots`, data),
+  update: (id: string, data: Partial<Shot>) => api.put<Shot>(`/shots/${id}`, data),
   uploadVideo: (shotId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);

@@ -1,5 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState } from 'react';
+import type { ReactNode } from 'react';
 import * as API from '../api/client';
+import type { EditPlan } from '../api/drift';
+
+export type StudioTab = 'story' | 'qa' | 'analytics' | 'youtube' | 'drift';
 
 interface StudioContextType {
   // Core Data
@@ -23,10 +27,24 @@ interface StudioContextType {
   setSelectedCharId: (id: string | null) => void;
 
   // UI State
-  activeTab: 'story' | 'qa' | 'analytics';
-  setActiveTab: (tab: 'story' | 'qa' | 'analytics') => void;
+  activeTab: StudioTab;
+  setActiveTab: (tab: StudioTab) => void;
   isRendering: boolean;
   setIsRendering: (rendering: boolean) => void;
+
+  // Creative render
+  creativeResult: API.CreativeRenderResult | null;
+  setCreativeResult: (result: API.CreativeRenderResult | null) => void;
+  newShotPrompt: string;
+  setNewShotPrompt: (val: string) => void;
+
+  // Chat
+  chatMessages: { role: string; text: string }[];
+  setChatMessages: React.Dispatch<React.SetStateAction<{ role: string; text: string }[]>>;
+
+  // Drift edit plan
+  editPlan: EditPlan | null;
+  setEditPlan: (plan: EditPlan | null) => void;
 }
 
 const StudioContext = createContext<StudioContextType | undefined>(undefined);
@@ -42,8 +60,13 @@ export const StudioProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [selectedCharId, setSelectedCharId] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'story' | 'qa' | 'analytics'>('story');
+  const [activeTab, setActiveTab] = useState<StudioTab>('story');
   const [isRendering, setIsRendering] = useState(false);
+
+  const [creativeResult, setCreativeResult] = useState<API.CreativeRenderResult | null>(null);
+  const [newShotPrompt, setNewShotPrompt] = useState('');
+  const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
+  const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
 
   return (
     <StudioContext.Provider
@@ -57,7 +80,11 @@ export const StudioProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         selectedSceneId, setSelectedSceneId,
         selectedCharId, setSelectedCharId,
         activeTab, setActiveTab,
-        isRendering, setIsRendering
+        isRendering, setIsRendering,
+        creativeResult, setCreativeResult,
+        newShotPrompt, setNewShotPrompt,
+        chatMessages, setChatMessages,
+        editPlan, setEditPlan
       }}
     >
       {children}

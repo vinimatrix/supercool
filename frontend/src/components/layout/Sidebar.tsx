@@ -4,16 +4,65 @@ import { TabNavigator } from './TabNavigator';
 import { AssetsPanel } from '../story/AssetsPanel';
 import { QAMonitor } from '../analytics/QAMonitor';
 import { AnalyticsPanel } from '../analytics/AnalyticsPanel';
+import { YouTubeConnect, YouTubeDashboard, YouTubeAIReport } from '../youtube';
+import { DriftPanel } from '../DriftPanel';
 import { useStudioContext } from '../../context/StudioContext';
+import { youtubeApi } from '../../api/youtube';
+import type { ChannelStats, VideoMetrics, AnalysisReport } from '../../api/youtube';
 
 export const Sidebar: React.FC = () => {
   const {
     activeTab,
-    setActiveTab,
     selectedProject,
     setSelectedProject,
-    projects
+    projects,
+    editPlan,
+    setEditPlan,
+    setChatMessages
   } = useStudioContext();
+
+  const [youtubeConnected, setYoutubeConnected] = React.useState(false);
+  const [youtubeToken, setYoutubeToken] = React.useState<string | null>(null);
+  const [channelStats, setChannelStats] = React.useState<ChannelStats | null>(null);
+  const [videos, setVideos] = React.useState<VideoMetrics[]>([]);
+  const [aiReport, setAiReport] = React.useState<AnalysisReport | null>(null);
+  const [aiProvider, setAiProvider] = React.useState('gemini');
+  const [analyzeLoading, setAnalyzeLoading] = React.useState(false);
+
+  const handleYouTubeConnect = async (token: string | null) => {
+    setYoutubeToken(token);
+    setYoutubeConnected(true);
+    try {
+      const [stats, videoList] = await Promise.all([
+        youtubeApi.getChannelStats(token),
+        youtubeApi.getVideoMetrics(token)
+      ]);
+      setChannelStats(stats);
+      setVideos(Array.isArray(videoList) ? videoList : []);
+    } catch (e) {
+      console.error('Failed to connect YouTube:', e);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    setAnalyzeLoading(true);
+    try {
+      const report = await youtubeApi.analyze(youtubeToken, aiProvider);
+      setAiReport(report);
+    } catch (e) {
+      console.error('YouTube AI analyze failed:', e);
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
+
+  const handlePlanExecuted = () => {
+    setEditPlan(null);
+    setChatMessages(prev => [
+      ...prev,
+      { role: 'system', text: 'Edit Plan executed in Drift. Open Drift Editor to see the timeline.' }
+    ]);
+  };
 
   return (
     <aside className="w-80 flex flex-col border-r shrink-0 overflow-hidden surface-panel" style={{ borderColor: 'var(--color-border)' }}>
@@ -36,6 +85,26 @@ export const Sidebar: React.FC = () => {
         {activeTab === 'story' && <AssetsPanel />}
         {activeTab === 'qa' && <QAMonitor />}
         {activeTab === 'analytics' && <AnalyticsPanel />}
+        {activeTab === 'youtube' && (
+          <div className="space-y-4">
+            <YouTubeConnect onConnect={handleYouTubeConnect} connected={youtubeConnected} />
+            {youtubeConnected && channelStats && (
+              <>
+                <YouTubeDashboard stats={channelStats} videos={videos} />
+                <YouTubeAIReport
+                  report={aiReport}
+                  onAnalyze={handleAnalyze}
+                  loading={analyzeLoading}
+                  provider={aiProvider}
+                  onProviderChange={setAiProvider}
+                />
+              </>
+            )}
+          </div>
+        )}
+        {activeTab === 'drift' && (
+          <DriftPanel editPlan={editPlan} onPlanExecuted={handlePlanExecuted} />
+        )}
       </div>
     </aside>
   );
