@@ -8,6 +8,7 @@ class CharacterCreate(BaseModel):
     biography: str | None = None
     locked_traits: list[str] = []
     voice_profile_id: str | None = None
+    visual_prompt: str | None = None
 
 
 class CharacterRead(BaseModel):
@@ -20,6 +21,8 @@ class CharacterRead(BaseModel):
     locked_traits: list[str] = []
     voice_profile_id: str | None = None
     created_at: datetime
+    visual_prompt: str | None = None
+    reference_sheet_url: str | None = None
 
 
 class AnchorFaceCreate(BaseModel):

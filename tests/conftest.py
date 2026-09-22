@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS characters (
     biography TEXT,
     locked_traits TEXT DEFAULT '[]',
     voice_profile_id VARCHAR(255),
+    reference_sheet_url TEXT,
+    visual_prompt TEXT,
     embedding BLOB,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,

@@ -22,6 +22,8 @@ class Character(Base):
     biography: Mapped[str | None] = mapped_column(Text)
     locked_traits: Mapped[list] = mapped_column(get_json_type(), default=list)
     voice_profile_id: Mapped[str | None] = mapped_column(String(255))
+    reference_sheet_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visual_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     embedding = mapped_column(Vector(512), nullable=True) if HAS_VECTOR else mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
