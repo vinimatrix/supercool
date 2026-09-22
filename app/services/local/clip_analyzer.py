@@ -72,18 +72,34 @@ class CLIPAnalyzer:
             return 0.0
         try:
             import torch
+            import torch.nn.functional as F
             from PIL import Image
 
             self._init_device()
             frame = Image.open(frame_path).convert("RGB")
             reference = Image.open(reference_path).convert("RGB")
-            inputs = self.preprocessor(images=[frame, reference], return_tensors="pt")
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+            # Process images with text placeholder (required by CLIP API)
+            frame_input = self.preprocessor(
+                text=["a photo"], images=frame, return_tensors="pt", padding=True
+            )
+            frame_input = {k: v.to(self.device) for k, v in frame_input.items()}
+            ref_input = self.preprocessor(
+                text=["a photo"], images=reference, return_tensors="pt", padding=True
+            )
+            ref_input = {k: v.to(self.device) for k, v in ref_input.items()}
+
             with torch.no_grad():
-                outputs = self.model.get_image_features(**inputs)
-                frame_features = outputs[0]
-                ref_features = outputs[1]
-                similarity = torch.cosine_similarity(frame_features, ref_features, dim=0)
+                frame_output = self.model(**frame_input)
+                ref_output = self.model(**ref_input)
+                frame_features = frame_output.image_embeds.flatten()
+                ref_features = ref_output.image_embeds.flatten()
+
+                # Normalize and compute cosine similarity
+                frame_features = F.normalize(frame_features, dim=0)
+                ref_features = F.normalize(ref_features, dim=0)
+                similarity = torch.dot(frame_features, ref_features)
+
             return float(similarity.item())
         except (OSError, RuntimeError, ValueError) as e:
             print(f"[CLIP] Similarity error: {e}")

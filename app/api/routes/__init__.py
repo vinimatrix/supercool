@@ -1,0 +1,22 @@
+"""API Routes package."""
+from app.api.routes import (
+    analytics,
+    anchor_faces,
+    creative,
+    davinci_resolve,
+    drift,
+    mcp,
+    nle,
+    pipeline,
+    production,
+    projects,
+    qa,
+    render,
+    scenes,
+    screenplay,
+    shots,
+    story_bible,
+    voice,
+    websocket,
+    youtube,
+)

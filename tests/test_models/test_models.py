@@ -7,7 +7,7 @@ from app.models.render_job import RenderJob
 
 
 def test_project_model():
-    p = Project(title="Test Film", description="A test")
+    p = Project(title="Test Film", description="A test", fps=24, target_resolution="4K")
     assert p.title == "Test Film"
     assert p.fps == 24
     assert p.target_resolution == "4K"

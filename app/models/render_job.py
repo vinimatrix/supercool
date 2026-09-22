@@ -3,17 +3,16 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.database import Base
+from app.db.database import Base, get_uuid_type
 
 
 class RenderJob(Base):
     __tablename__ = "render_jobs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shot_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("shots.id", ondelete="CASCADE"))
+    id: Mapped[uuid.UUID] = mapped_column(get_uuid_type(), primary_key=True, default=uuid.uuid4)
+    shot_id: Mapped[uuid.UUID] = mapped_column(get_uuid_type(), ForeignKey("shots.id", ondelete="CASCADE"))
     engine_name: Mapped[str] = mapped_column(String(50), nullable=False)
     status: Mapped[str] = mapped_column(String(50), default="QUEUED")
     output_url: Mapped[str | None] = mapped_column(Text)

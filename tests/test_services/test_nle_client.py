@@ -24,7 +24,7 @@ async def test_health_check_success(client):
 
         result = await client.health_check()
         assert result is True
-        mock_http.get.assert_called_once_with("http://localhost:8080/health")
+        mock_http.get.assert_called_once_with("http://localhost:8080/nle/health")
 
 
 @pytest.mark.asyncio
@@ -59,7 +59,7 @@ async def test_concat(client):
         result = await client.concat(["clip1.mp4", "clip2.mp4"], "/tmp/out.mp4")
         assert result == {"output": "/tmp/out.mp4", "duration_s": 10.0}
         mock_http.post.assert_called_once_with(
-            "http://localhost:8080/api/v1/concat",
+            "http://localhost:8080/nle/concat",
             json={"clips": ["clip1.mp4", "clip2.mp4"], "output": "/tmp/out.mp4"},
         )
 
@@ -81,7 +81,7 @@ async def test_transcode(client):
         result = await client.transcode("/tmp/in.mp4", "/tmp/out_24fps.mp4", fps=24)
         assert result == {"output": "/tmp/out_24fps.mp4"}
         mock_http.post.assert_called_once_with(
-            "http://localhost:8080/api/v1/transcode",
+            "http://localhost:8080/nle/transcode",
             json={"input": "/tmp/in.mp4", "output": "/tmp/out_24fps.mp4", "fps": 24},
         )
 
@@ -103,7 +103,7 @@ async def test_mix_audio(client):
         result = await client.mix_audio(["v1.wav", "bgm.wav"], "/tmp/mixed.wav")
         assert result == {"output": "/tmp/mixed.wav"}
         mock_http.post.assert_called_once_with(
-            "http://localhost:8080/api/v1/mix_audio",
+            "http://localhost:8080/nle/mix-audio",
             json={"tracks": ["v1.wav", "bgm.wav"], "output": "/tmp/mixed.wav"},
         )
 
@@ -126,5 +126,5 @@ async def test_pipeline(client):
         result = await client.pipeline(config)
         assert result == {"status": "ok", "output": "/tmp/final.mp4"}
         mock_http.post.assert_called_once_with(
-            "http://localhost:8080/api/v1/pipeline", json=config
+            "http://localhost:8080/nle/pipeline", json=config
         )

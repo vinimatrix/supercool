@@ -1,6 +1,6 @@
 import httpx
 
-from app.providers.base import LLMProvider, Entity
+from app.providers.base import LLMProvider, Entity, _parse_entities
 from app.config import settings
 
 
@@ -26,7 +26,8 @@ class OpenAIProvider(LLMProvider):
                 },
                 timeout=30.0,
             )
-            return []
+            raw = response.json()["choices"][0]["message"]["content"]
+            return _parse_entities(raw)
 
     async def generate_prompt(self, scene_description: str, characters: list[dict]) -> str:
         char_info = "\n".join(

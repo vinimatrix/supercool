@@ -142,12 +142,7 @@ function App() {
     } catch { /* api offline */ }
   };
 
-  const startRender = async (shotId: string) => {
-    try {
-      await renderApi.start(shotId);
-      setChatMessages([...chatMessages, { role: 'system', text: 'Render started for shot' }]);
-    } catch { /* api offline */ }
-  };
+
 
   const uploadAnchorFace = async (characterId: string, file: File) => {
     try {
@@ -209,7 +204,7 @@ function App() {
           in_point: seg?.clip_start || 0,
           out_point: seg?.clip_start !== undefined ? seg.clip_start + dur : undefined,
           speed: result.data.speed_adjustments?.[i] || 1,
-          color_grade: result.data.color_grades?.[i],
+          color_grade: result.data.color_grades?.[i] ?? undefined,
           volume: 1.0,
         };
       });
