@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import (
     analytics,
     anchor_faces,
+    characters,
     creative,
     davinci_resolve,
     drift,
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(shots.router, prefix="/api/v1")
     app.include_router(render.router, prefix="/api/v1")
     app.include_router(anchor_faces.router, prefix="/api/v1")
+    app.include_router(characters.router, prefix="/api/v1")
     app.include_router(creative.router, prefix="/api/v1")
     app.include_router(drift.router, prefix="/api/v1")
     app.include_router(analytics.router, prefix="/api/v1")

@@ -11,6 +11,13 @@ class CharacterCreate(BaseModel):
     visual_prompt: str | None = None
 
 
+class CharacterUpdate(BaseModel):
+    name: str | None = None
+    biography: str | None = None
+    locked_traits: list[str] | None = None
+    visual_prompt: str | None = None
+
+
 class CharacterRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
