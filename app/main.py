@@ -18,6 +18,7 @@ from app.api.routes import (
     production,
     projects,
     qa,
+    reference_sheet,
     render,
     scenes,
     screenplay,
@@ -59,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(shots.router, prefix="/api/v1")
     app.include_router(render.router, prefix="/api/v1")
     app.include_router(anchor_faces.router, prefix="/api/v1")
+    app.include_router(reference_sheet.router, prefix="/api/v1")
     app.include_router(characters.router, prefix="/api/v1")
     app.include_router(creative.router, prefix="/api/v1")
     app.include_router(drift.router, prefix="/api/v1")
