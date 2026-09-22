@@ -17,6 +17,14 @@ async def update_character(
     char = await db.get(Character, character_id)
     if not char:
         raise HTTPException(status_code=404, detail="Character not found")
+
+    for field in ("name", "locked_traits"):
+        if field in data.model_fields_set and getattr(data, field) is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Field '{field}' cannot be null",
+            )
+
     fields = data.model_dump(exclude_unset=True)
     for key, value in fields.items():
         setattr(char, key, value)
