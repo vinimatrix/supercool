@@ -31,9 +31,10 @@ Skipped — API at `localhost:8000` not running (request timed out; Docker/API d
 
 ## Step 4: Final commit
 
-Leftover files present: modified `.superpowers/sdd/*` (progress.md + task 1–7 briefs/reports) plus this report. Committed as:
+Leftover files present: modified `.superpowers/sdd/*` (progress.md + task 1–7 briefs/reports). Two commits:
 
-`chore: verification pass for resizable panels and character reference`
+- `dd478ec` — `chore: verification pass for resizable panels and character reference` (11 leftover sdd files)
+- `fe1bbb8` — `chore: add task 8 and 9 verification reports` (task-8/task-9 reports force-added; `.superpowers/sdd/.gitignore` ignores `*`, reports 1–7 were previously force-added, 8–9 had not been)
 
 ## Concerns
 
