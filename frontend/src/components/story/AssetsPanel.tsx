@@ -27,7 +27,9 @@ export const AssetsPanel: React.FC = () => {
   const [newCharTraits, setNewCharTraits] = useState<string[]>([]);
 
   // Edit state for the active character
-  const [editingCharData, setEditingCharData] = useState<{ name: string; biography: string; locked_traits: string[] } | null>(null);
+  const [editingCharData, setEditingCharData] = useState<{
+    name: string; biography: string; locked_traits: string[]; visual_prompt: string;
+  } | null>(null);
   const [faceAngle, setFaceAngle] = useState('Front');
   const [isPrimaryFace, setIsPrimaryFace] = useState(false);
 
@@ -42,7 +44,8 @@ export const AssetsPanel: React.FC = () => {
         setEditingCharData({
           name: char.name,
           biography: char.biography || '',
-          locked_traits: [...char.locked_traits]
+          locked_traits: [...char.locked_traits],
+          visual_prompt: char.visual_prompt || ''
         });
       }
     } else {
@@ -148,6 +151,8 @@ export const AssetsPanel: React.FC = () => {
           setIsPrimaryFace={setIsPrimaryFace}
           loadingStates={api.loadingStates}
           fileInputRef={useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>}
+          uploadReferenceSheet={api.uploadReferenceSheet}
+          deleteReferenceSheet={api.deleteReferenceSheet}
         />
 
         <div className="flex flex-col gap-2 mt-4">

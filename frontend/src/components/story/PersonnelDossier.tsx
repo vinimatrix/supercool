@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Upload, Trash2, Camera, Lock, Unlock } from 'lucide-react';
+import { User, Upload, Trash2, Camera, Lock, Unlock, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 
@@ -21,6 +21,8 @@ interface PersonnelDossierProps {
   setIsPrimaryFace: (val: boolean) => void;
   loadingStates: Record<string, boolean>;
   fileInputRef: React.RefObject<HTMLInputElement>;
+  uploadReferenceSheet?: (charId: string, file: File) => Promise<any>;
+  deleteReferenceSheet?: (charId: string) => Promise<any>;
 }
 
 export const PersonnelDossier: React.FC<PersonnelDossierProps> = ({
@@ -40,7 +42,9 @@ export const PersonnelDossier: React.FC<PersonnelDossierProps> = ({
   isPrimaryFace,
   setIsPrimaryFace,
   loadingStates,
-  fileInputRef
+  fileInputRef,
+  uploadReferenceSheet,
+  deleteReferenceSheet
 }) => {
   const activeChar = characters.find(c => c.id === selectedCharId);
   const faces = selectedCharId ? anchorFaces[selectedCharId] || [] : [];
@@ -91,6 +95,18 @@ export const PersonnelDossier: React.FC<PersonnelDossierProps> = ({
                 value={editingCharData.biography}
                 onChange={e => setEditingCharData({...editingCharData, biography: e.target.value})}
                 className="w-full bg-black/40 text-xs p-2 rounded border border-[var(--color-border)] mono text-white h-20 resize-none focus:border-[var(--color-accent)] outline-none"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[8px] mono text-gray-600 uppercase">
+                Visual Reference (for AI)
+              </label>
+              <textarea
+                aria-label="Visual Reference"
+                value={editingCharData.visual_prompt ?? ''}
+                onChange={(e) => setEditingCharData({ ...editingCharData, visual_prompt: e.target.value })}
+                placeholder="Appearance, wardrobe, personality for renders..."
+                className="w-full bg-black/40 text-xs p-2 rounded border border-[var(--color-border)] mono text-white h-24 resize-none focus:border-[var(--color-accent)] outline-none"
               />
             </div>
           </div>
@@ -154,6 +170,46 @@ export const PersonnelDossier: React.FC<PersonnelDossierProps> = ({
                 />
               </label>
             </div>
+          </div>
+
+          <div className="pt-3 border-t border-[var(--color-border)] space-y-2">
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-3 h-3 text-gray-500" />
+              <span className="text-[9px] mono text-gray-500 uppercase">Reference Sheet</span>
+            </div>
+            {activeChar.reference_sheet_url ? (
+              <div className="relative aspect-[3/4] max-w-[120px] rounded border border-[var(--color-border)] bg-black group">
+                <img
+                  src={`http://localhost:8000${activeChar.reference_sheet_url}`}
+                  alt="Character reference sheet"
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100">
+                  <label className="cursor-pointer px-1 py-0.5 bg-black/80 text-[8px] mono rounded border border-white/20">
+                    Replace
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadReferenceSheet?.(activeChar.id, f);
+                      }} />
+                  </label>
+                  <button
+                    onClick={() => deleteReferenceSheet?.(activeChar.id)}
+                    className="px-1 py-0.5 bg-red-500/40 text-[8px] mono rounded"
+                  >Delete</button>
+                </div>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center aspect-[3/4] max-w-[120px] rounded border border-dashed border-[var(--color-border)] cursor-pointer hover:border-[var(--color-accent)]">
+                <Upload className="w-4 h-4 mb-1 opacity-50" />
+                <span className="text-[8px] mono text-gray-500 uppercase">REFERENCE SHEET</span>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadReferenceSheet?.(activeChar.id, f);
+                  }} />
+              </label>
+            )}
           </div>
 
           <div className="pt-3 border-t border-[var(--color-border)]">
