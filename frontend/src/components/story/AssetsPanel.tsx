@@ -124,6 +124,20 @@ export const AssetsPanel: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
+  const handleUploadReferenceSheet = async (charId: string, file: File) => {
+    try {
+      const updated = await api.uploadReferenceSheet(charId, file);
+      setCharacters(prev => prev.map(c => (c.id === charId ? updated : c)));
+    } catch { /* toast already shown by useStudioApi */ }
+  };
+
+  const handleDeleteReferenceSheet = async (charId: string) => {
+    try {
+      const updated = await api.deleteReferenceSheet(charId);
+      setCharacters(prev => prev.map(c => (c.id === charId ? updated : c)));
+    } catch { /* toast already shown */ }
+  };
+
   return (
     <div className="space-y-6">
       {/* Personnel Section */}
@@ -151,8 +165,8 @@ export const AssetsPanel: React.FC = () => {
           setIsPrimaryFace={setIsPrimaryFace}
           loadingStates={api.loadingStates}
           fileInputRef={useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>}
-          uploadReferenceSheet={api.uploadReferenceSheet}
-          deleteReferenceSheet={api.deleteReferenceSheet}
+          uploadReferenceSheet={handleUploadReferenceSheet}
+          deleteReferenceSheet={handleDeleteReferenceSheet}
         />
 
         <div className="flex flex-col gap-2 mt-4">
