@@ -1,155 +1,143 @@
-# Task 1: Project Scaffolding
+### Task 1: Character model + Alembic migration + schemas
 
 **Files:**
-- Create: `pyproject.toml`
-- Create: `Cargo.toml`
-- Create: `app/__init__.py`
-- Create: `app/main.py`
-- Create: `app/config.py`
-- Create: `tests/__init__.py`
-- Create: `tests/conftest.py`
+- Modify: `app/models/character.py` (Character class, lines ~16–30)
+- Create: `alembic/versions/<new>_add_character_reference_fields.py` (down_revision=`fcae66ea5e4b`)
+- Modify: `app/schemas/character.py`
+- Modify: `tests/conftest.py` (CREATE_CHARACTERS SQL)
+- Test: `tests/test_models/test_models.py`
 
 **Interfaces:**
-- Consumes: None (first task)
-- Produces: `create_app()` factory, `Settings` class
+- Produces: `Character.reference_sheet_url: str | None`, `Character.visual_prompt: str | None`; `CharacterRead`/`CharacterCreate` expose `visual_prompt: str | None = None` (and `reference_sheet_url: str | None = None` on Read only).
 
-## Step 1: Create pyproject.toml
+- [ ] **Step 1: Write the failing model/schema test**
 
-```toml
-[project]
-name = "supercool"
-version = "0.1.0"
-description = "AI Cinematic Studio"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "sqlalchemy[asyncio]>=2.0.35",
-    "asyncpg>=0.29.0",
-    "pydantic-settings>=2.5.0",
-    "alembic>=1.13.0",
-    "httpx>=0.27.0",
-    "celery[redis]>=5.4.0",
-    "pgvector>=0.3.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.3.0",
-    "pytest-asyncio>=0.24.0",
-    "httpx>=0.27.0",
-    "ruff>=0.6.0",
-]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py312"
-```
-
-## Step 2: Create Cargo.toml
-
-```toml
-[package]
-name = "supercool-nle"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-axum = "0.7"
-tokio = { version = "1", features = ["full"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-uuid = { version = "1", features = ["v4"] }
-tracing = "0.1"
-tracing-subscriber = "0.3"
-```
-
-## Step 3: Create app/config.py
+Append to `tests/test_models/test_models.py`:
 
 ```python
-from pydantic_settings import BaseSettings
+from app.models.character import Character
+from app.schemas.character import CharacterCreate, CharacterRead
 
 
-class Settings(BaseSettings):
-    model_config = {"env_prefix": "SUPERCOOL_"}
-
-    database_url: str = "postgresql+asyncpg://supercool:supercool@localhost:5432/supercool"
-    database_url_sync: str = "postgresql://supercool:supercool@localhost:5432/supercool"
-    redis_url: str = "redis://localhost:6379/0"
-    nle_url: str = "http://localhost:8080"
-    google_api_key: str = ""
-    openai_api_key: str = ""
-    nvidia_api_key: str = ""
-    llm_provider: str = "google"
-    llm_fallback_enabled: bool = True
+def test_character_has_reference_fields():
+    c = Character(name="Hero")
+    assert hasattr(c, "reference_sheet_url")
+    assert hasattr(c, "visual_prompt")
 
 
-settings = Settings()
-```
-
-## Step 4: Create app/main.py
-
-```python
-from fastapi import FastAPI
-
-
-def create_app() -> FastAPI:
-    app = FastAPI(
-        title="SuperCool - AI Cinematic Studio",
-        version="0.1.0",
+def test_character_schemas_expose_visual_prompt():
+    create = CharacterCreate(name="Hero", visual_prompt="scar over left eye")
+    assert create.visual_prompt == "scar over left eye"
+    read = CharacterRead.model_validate(
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "project_id": "00000000-0000-0000-0000-000000000002",
+            "name": "Hero",
+            "biography": None,
+            "locked_traits": [],
+            "voice_profile_id": None,
+            "created_at": "2026-01-01T00:00:00",
+            "reference_sheet_url": "/uploads/reference_sheets/a.png",
+            "visual_prompt": "tall",
+        }
     )
-
-    @app.get("/health")
-    async def health():
-        return {"status": "ok"}
-
-    return app
+    assert read.reference_sheet_url.endswith("a.png")
+    assert read.visual_prompt == "tall"
 ```
 
-## Step 5: Create tests/conftest.py
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `python -m pytest tests/test_models/test_models.py -v`
+Expected: FAIL (`AttributeError` / missing schema field)
+
+- [ ] **Step 3: Implement model fields**
+
+In `app/models/character.py` inside `Character`, after `voice_profile_id`:
 
 ```python
-import pytest
-from httpx import AsyncClient, ASGITransport
-
-from app.main import create_app
-
-
-@pytest.fixture
-def app():
-    return create_app()
-
-
-@pytest.fixture
-async def client(app):
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
+    reference_sheet_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visual_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
 ```
 
-## Step 6: Write failing test
+- [ ] **Step 4: Implement schemas**
 
-Create `tests/test_api/test_health.py`:
+In `app/schemas/character.py`:
 
 ```python
-async def test_health_endpoint(client):
-    response = await client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+class CharacterCreate(BaseModel):
+    name: str
+    biography: str | None = None
+    locked_traits: list[str] = []
+    voice_profile_id: str | None = None
+    visual_prompt: str | None = None
+
+
+class CharacterRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    project_id: UUID
+    name: str
+    biography: str | None = None
+    locked_traits: list[str] = []
+    voice_profile_id: str | None = None
+    created_at: datetime
+    visual_prompt: str | None = None
+    reference_sheet_url: str | None = None
 ```
 
-## Step 7: Run test to verify it passes
+- [ ] **Step 5: Update test conftest CREATE_CHARACTERS**
 
-Run: `python -m pytest tests/test_api/test_health.py -v`
+In `tests/conftest.py` `CREATE_CHARACTERS`, add columns after `voice_profile_id`:
+
+```sql
+    reference_sheet_url TEXT,
+    visual_prompt TEXT,
+```
+
+- [ ] **Step 6: Create Alembic migration**
+
+Create `alembic/versions/add_character_reference_fields.py`:
+
+```python
+"""add character reference_sheet_url and visual_prompt
+
+Revision ID: c0ffee123abc
+Revises: fcae66ea5e4b
+Create Date: 2026-09-22
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+revision: str = "c0ffee123abc"
+down_revision: Union[str, Sequence[str], None] = "fcae66ea5e4b"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.add_column("characters", sa.Column("reference_sheet_url", sa.Text(), nullable=True))
+    op.add_column("characters", sa.Column("visual_prompt", sa.Text(), nullable=True))
+
+
+def downgrade() -> None:
+    op.drop_column("characters", "visual_prompt")
+    op.drop_column("characters", "reference_sheet_url")
+```
+
+- [ ] **Step 7: Run tests to verify pass**
+
+Run: `python -m pytest tests/test_models/test_models.py -v`
 Expected: PASS
 
-## Step 8: Commit
+- [ ] **Step 8: Commit**
 
 ```bash
-git add pyproject.toml Cargo.toml app/ tests/
-git commit -m "feat: project scaffolding with FastAPI app factory"
+git add app/models/character.py app/schemas/character.py tests/conftest.py tests/test_models/test_models.py alembic/versions/add_character_reference_fields.py
+git commit -m "feat: add character reference_sheet_url and visual_prompt fields"
 ```
+
+---
+

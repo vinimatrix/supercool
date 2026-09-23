@@ -131,3 +131,17 @@
 - Resolve NotebookLM authentication issue
 - Docker deployment with FastAPI + Celery + Redis
 - Test with real CosyVoice/MuseTalk models 
+
+## Resizable Panels + Character Reference Sheet (2026-09-22)
+
+| Task | Status | Commits |
+|------|--------|---------|
+
+| Task 1: Character model + migration + schemas | DONE | 4cae6d7 |
+| Task 2: PUT /characters/{id} endpoint | DONE | 304ac3f, e9ff054 |
+| Task 3: Reference sheet upload/DELETE routes | DONE | 85b1acb |
+| Task 4: Inject visual_prompt into LLM providers | DONE | 2861ead, 26835c8 |
+| Task 5: useResizablePanel hook + PanelDivider | DONE | d19035a |
+| Task 6: Wire Sidebar + CommandCenter widths | DONE | 553de22 |
+| Task 7: Frontend API client + useStudioApi methods | DONE | ad1edb9 |
+| Task 8: AssetsPanel + PersonnelDossier UI | DONE | 9a86828, 3bedc5a |

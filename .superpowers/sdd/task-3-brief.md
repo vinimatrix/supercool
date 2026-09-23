@@ -1,237 +1,167 @@
-# Task 3: Database Models
+### Task 3: Reference sheet upload/DELETE routes
 
 **Files:**
-- Create: `app/models/__init__.py`
-- Create: `app/models/project.py`
-- Create: `app/models/character.py`
-- Create: `app/models/scene.py`
-- Create: `app/models/shot.py`
-- Create: `app/models/render_job.py`
+- Create: `app/api/routes/reference_sheet.py`
+- Modify: `app/main.py` (include router)
+- Test: `tests/test_api/test_reference_sheet.py`
 
 **Interfaces:**
-- Consumes: `Base` from `app.db.database`
-- Produces: `Project`, `Character`, `AnchorFace`, `Scene`, `Shot`, `RenderJob` ORM models
+- Consumes: `Character.reference_sheet_url` (Task 1).
+- Produces:
+  - `POST /api/v1/characters/{character_id}/reference-sheet` (multipart `file`) → `CharacterRead`
+  - `DELETE /api/v1/characters/{character_id}/reference-sheet` → `CharacterRead`
+  - Files under `uploads/reference_sheets/`; URL `/uploads/reference_sheets/{filename}` (already mounted in `main.py`).
 
-## Step 1: Write failing test
+- [ ] **Step 1: Write failing tests**
 
-Create `tests/test_models/__init__.py` (empty) and `tests/test_models/test_models.py`:
+Create `tests/test_api/test_reference_sheet.py`:
 
 ```python
-import pytest
-from app.models.project import Project
-from app.models.character import Character, AnchorFace
-from app.models.scene import Scene
-from app.models.shot import Shot
-from app.models.render_job import RenderJob
+import io
 
 
-def test_project_model():
-    p = Project(title="Test Film", description="A test")
-    assert p.title == "Test Film"
-    assert p.fps == 24
-    assert p.target_resolution == "4K"
+async def test_upload_and_delete_reference_sheet(client, tmp_path, monkeypatch):
+    import app.api.routes.reference_sheet as rs
+
+    monkeypatch.setattr(rs, "UPLOAD_DIR", tmp_path)
+    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
+    char = (
+        await client.post(
+            f"/api/v1/projects/{proj['id']}/characters",
+            json={"name": "Hero"},
+        )
+    ).json()
+
+    resp = await client.post(
+        f"/api/v1/characters/{char['id']}/reference-sheet",
+        files={"file": ("sheet.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
+    )
+    assert resp.status_code == 200
+    url = resp.json()["reference_sheet_url"]
+    assert url.startswith("/uploads/reference_sheets/")
+
+    resp = await client.delete(f"/api/v1/characters/{char['id']}/reference-sheet")
+    assert resp.status_code == 200
+    assert resp.json()["reference_sheet_url"] is None
 
 
-def test_character_model():
-    c = Character(name="Boruto", locked_traits=["scar", "cape"])
-    assert c.name == "Boruto"
-    assert c.locked_traits == ["scar", "cape"]
+async def test_upload_rejects_non_image(client):
+    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
+    char = (
+        await client.post(
+            f"/api/v1/projects/{proj['id']}/characters",
+            json={"name": "Hero"},
+        )
+    ).json()
+    resp = await client.post(
+        f"/api/v1/characters/{char['id']}/reference-sheet",
+        files={"file": ("evil.txt", io.BytesIO(b"hello"), "text/plain")},
+    )
+    assert resp.status_code == 400
 
 
-def test_shot_model():
-    s = Shot(prompt_text="A warrior stands", status="PENDING")
-    assert s.status == "PENDING"
+async def test_upload_character_not_found(client):
+    resp = await client.post(
+        "/api/v1/characters/00000000-0000-0000-0000-000000000099/reference-sheet",
+        files={"file": ("s.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
+    )
+    assert resp.status_code == 404
 ```
 
-## Step 2: Run test to verify it fails
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_models/test_models.py -v`
-Expected: FAIL with ImportError
+Run: `python -m pytest tests/test_api/test_reference_sheet.py -v`
+Expected: FAIL (404/405 — no route)
 
-## Step 3: Create all model files
+- [ ] **Step 3: Implement route module**
 
-Create `app/models/__init__.py`:
+Create `app/api/routes/reference_sheet.py`:
+
 ```python
-from app.models.project import Project
-from app.models.character import Character, AnchorFace
-from app.models.scene import Scene
-from app.models.shot import Shot
-from app.models.render_job import RenderJob
+import uuid as uuid_mod
+from pathlib import Path
 
-__all__ = ["Project", "Character", "AnchorFace", "Scene", "Shot", "RenderJob"]
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_db
+from app.models.character import Character
+
+router = APIRouter(tags=["reference-sheet"])
+
+UPLOAD_DIR = Path("uploads/reference_sheets")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+MAX_BYTES = 5 * 1024 * 1024
+
+
+@router.post("/characters/{character_id}/reference-sheet")
+async def upload_reference_sheet(
+    character_id: uuid_mod.UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    char = await db.get(Character, character_id)
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="File must be an image")
+    content = await file.read()
+    if len(content) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 5MB)")
+
+    if char.reference_sheet_url:
+        old = Path(char.reference_sheet_url.lstrip("/"))
+        if old.exists():
+            old.unlink()
+
+    ext = Path(file.filename or "sheet.png").suffix or ".png"
+    filename = f"{uuid_mod.uuid4()}{ext}"
+    (UPLOAD_DIR / filename).write_bytes(content)
+    char.reference_sheet_url = f"/uploads/reference_sheets/{filename}"
+    await db.commit()
+    await db.refresh(char)
+    return char
+
+
+@router.delete("/characters/{character_id}/reference-sheet")
+async def delete_reference_sheet(
+    character_id: uuid_mod.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    char = await db.get(Character, character_id)
+    if not char:
+        raise HTTPException(status_code=404, detail="Character not found")
+    if char.reference_sheet_url:
+        path = Path(char.reference_sheet_url.lstrip("/"))
+        if path.exists():
+            path.unlink()
+        char.reference_sheet_url = None
+        await db.commit()
+        await db.refresh(char)
+    return char
 ```
 
-Create `app/models/project.py`:
+- [ ] **Step 4: Register in main.py**
+
+Add `reference_sheet` to imports; after anchor_faces include:
+
 ```python
-import uuid
-from datetime import datetime
-
-from sqlalchemy import String, Integer, Text, DateTime
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
-
-from app.db.database import Base
-
-
-class Project(Base):
-    __tablename__ = "projects"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text)
-    target_resolution: Mapped[str] = mapped_column(String(20), default="4K")
-    fps: Mapped[int] = mapped_column(Integer, default=24)
-    aspect_ratio: Mapped[str] = mapped_column(String(10), default="16:9")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    characters = relationship("Character", back_populates="project", cascade="all, delete-orphan")
-    scenes = relationship("Scene", back_populates="project", cascade="all, delete-orphan")
+    app.include_router(reference_sheet.router, prefix="/api/v1")
 ```
 
-Create `app/models/character.py`:
-```python
-import uuid
-from datetime import datetime
+- [ ] **Step 5: Run tests**
 
-from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-
-from app.db.database import Base
-
-
-class Character(Base):
-    __tablename__ = "characters"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"))
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    biography: Mapped[str | None] = mapped_column(Text)
-    locked_traits: Mapped[list] = mapped_column(JSONB, default=list)
-    voice_profile_id: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    project = relationship("Project", back_populates="characters")
-    anchor_faces = relationship("AnchorFace", back_populates="character", cascade="all, delete-orphan")
-
-
-class AnchorFace(Base):
-    __tablename__ = "anchor_faces"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    character_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("characters.id", ondelete="CASCADE"))
-    image_url: Mapped[str] = mapped_column(Text, nullable=False)
-    view_angle: Mapped[str | None] = mapped_column(String(50))
-    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-
-    character = relationship("Character", back_populates="anchor_faces")
-```
-
-Create `app/models/scene.py`:
-```python
-import uuid
-from datetime import datetime
-
-from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
-
-from app.db.database import Base
-
-
-class Scene(Base):
-    __tablename__ = "scenes"
-    __table_args__ = (UniqueConstraint("project_id", "scene_number"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"))
-    scene_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    title: Mapped[str | None] = mapped_column(String(255))
-    location: Mapped[str | None] = mapped_column(String(255))
-    time_of_day: Mapped[str | None] = mapped_column(String(50))
-    summary: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    project = relationship("Project", back_populates="scenes")
-    shots = relationship("Shot", back_populates="scene", cascade="all, delete-orphan")
-```
-
-Create `app/models/shot.py`:
-```python
-import uuid
-from datetime import datetime
-
-from sqlalchemy import String, Integer, Text, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
-
-from app.db.database import Base
-
-
-class Shot(Base):
-    __tablename__ = "shots"
-    __table_args__ = (UniqueConstraint("scene_id", "shot_number"),)
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scene_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("scenes.id", ondelete="CASCADE"))
-    shot_number: Mapped[int] = mapped_column(Integer, nullable=False)
-    shot_type: Mapped[str | None] = mapped_column(String(50))
-    motion_type: Mapped[str | None] = mapped_column(String(50))
-    assigned_engine: Mapped[str | None] = mapped_column(String(50))
-    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
-    injected_prompt: Mapped[str | None] = mapped_column(Text)
-    dialogue_text: Mapped[str | None] = mapped_column(Text)
-    speaker_character_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("characters.id", ondelete="SET NULL"))
-    status: Mapped[str] = mapped_column(String(50), default="PENDING")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    scene = relationship("Scene", back_populates="shots")
-    render_jobs = relationship("RenderJob", back_populates="shot", cascade="all, delete-orphan")
-```
-
-Create `app/models/render_job.py`:
-```python
-import uuid
-from datetime import datetime
-from decimal import Decimal
-
-from sqlalchemy import String, Integer, Text, DateTime, Numeric, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
-
-from app.db.database import Base
-
-
-class RenderJob(Base):
-    __tablename__ = "render_jobs"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shot_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("shots.id", ondelete="CASCADE"))
-    engine_name: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(50), default="QUEUED")
-    output_url: Mapped[str | None] = mapped_column(Text)
-    qa_score: Mapped[Decimal | None] = mapped_column(Numeric(4, 3))
-    qa_feedback: Mapped[str | None] = mapped_column(Text)
-    retry_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    shot = relationship("Shot", back_populates="render_jobs")
-```
-
-## Step 4: Run tests to verify they pass
-
-Run: `python -m pytest tests/test_models/test_models.py -v`
+Run: `python -m pytest tests/test_api/test_reference_sheet.py tests/test_api/test_characters.py -v`
 Expected: PASS
 
-## Step 5: Commit
+- [ ] **Step 6: Commit**
 
 ```bash
-git add app/models/ tests/test_models/
-git commit -m "feat: SQLAlchemy ORM models for all 6 tables"
+git add app/api/routes/reference_sheet.py app/main.py tests/test_api/test_reference_sheet.py
+git commit -m "feat: character reference sheet upload and delete endpoints"
 ```
+
+---
+
