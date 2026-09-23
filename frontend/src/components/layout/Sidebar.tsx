@@ -9,6 +9,8 @@ import { DriftPanel } from '../DriftPanel';
 import { useStudioContext } from '../../context/StudioContext';
 import { youtubeApi } from '../../api/youtube';
 import type { ChannelStats, VideoMetrics, AnalysisReport } from '../../api/youtube';
+import { useResizablePanel } from '../../hooks/useResizablePanel';
+import { PanelDivider } from './PanelDivider';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -28,6 +30,8 @@ export const Sidebar: React.FC = () => {
   const [aiReport, setAiReport] = React.useState<AnalysisReport | null>(null);
   const [aiProvider, setAiProvider] = React.useState('gemini');
   const [analyzeLoading, setAnalyzeLoading] = React.useState(false);
+
+  const { width, dividerProps } = useResizablePanel('sidebar', 320, 220, 560, 1);
 
   const handleYouTubeConnect = async (token: string | null) => {
     setYoutubeToken(token);
@@ -65,7 +69,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-80 flex flex-col border-r shrink-0 overflow-hidden surface-panel" style={{ borderColor: 'var(--color-border)' }}>
+    <aside className="relative flex flex-col border-r shrink-0 overflow-hidden surface-panel" style={{ width, borderColor: 'var(--color-border)' }}>
       <div className="p-4 border-b" style={{ borderColor: 'var(--color-border)' }}>
         <div className="flex items-center gap-2 mb-4">
           <span className="text-xs font-bold uppercase tracking-widest">Story Bible</span>
@@ -106,6 +110,10 @@ export const Sidebar: React.FC = () => {
           <DriftPanel editPlan={editPlan} onPlanExecuted={handlePlanExecuted} />
         )}
       </div>
+      <PanelDivider
+        {...dividerProps}
+        style={{ backgroundColor: 'var(--color-border)', position: 'absolute', top: 0, bottom: 0, right: 0, zIndex: 10 }}
+      />
     </aside>
   );
 };
