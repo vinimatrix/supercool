@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import axios from 'axios';
+import { api, charactersApi } from '../api/client';
 
 vi.mock('axios', () => {
   const mockAxios = {
@@ -100,5 +101,26 @@ describe('API Client', () => {
       });
       expect(result.data).toEqual(mockData);
     });
+  });
+});
+
+describe('charactersApi reference sheet', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('uploadReferenceSheet posts multipart form data', async () => {
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({ data: {} } as any);
+    const file = new File(['x'], 's.png', { type: 'image/png' });
+    await charactersApi.uploadReferenceSheet('c1', file);
+    expect(spy).toHaveBeenCalledWith(
+      '/characters/c1/reference-sheet',
+      expect.any(FormData),
+      expect.objectContaining({ headers: { 'Content-Type': 'multipart/form-data' } })
+    );
+  });
+
+  it('deleteReferenceSheet calls delete', async () => {
+    const spy = vi.spyOn(api, 'delete').mockResolvedValue({ data: {} } as any);
+    await charactersApi.deleteReferenceSheet('c1');
+    expect(spy).toHaveBeenCalledWith('/characters/c1/reference-sheet');
   });
 });

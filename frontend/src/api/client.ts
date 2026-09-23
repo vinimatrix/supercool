@@ -19,6 +19,8 @@ export interface Character {
   biography: string | null;
   locked_traits: string[];
   voice_profile_id: string | null;
+  reference_sheet_url?: string | null;
+  visual_prompt?: string | null;
 }
 
 export interface Scene {
@@ -67,6 +69,15 @@ export const charactersApi = {
   create: (projectId: string, data: { name: string; locked_traits?: string[] }) =>
     api.post<Character>(`/projects/${projectId}/characters`, data),
   update: (id: string, data: Partial<Character>) => api.put<Character>(`/characters/${id}`, data),
+  uploadReferenceSheet: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<Character>(`/characters/${id}/reference-sheet`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  deleteReferenceSheet: (id: string) =>
+    api.delete<Character>(`/characters/${id}/reference-sheet`),
 };
 
 export const scenesApi = {

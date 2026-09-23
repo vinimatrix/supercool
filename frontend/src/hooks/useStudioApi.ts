@@ -199,6 +199,31 @@ export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error'
     }
   };
 
+  const uploadReferenceSheet = async (characterId: string, file: File) => {
+    setLoading('reference-sheet', true);
+    try {
+      const res = await charactersApi.uploadReferenceSheet(characterId, file);
+      showToast('Reference sheet uploaded', 'success');
+      return res.data;
+    } catch {
+      showToast('Reference sheet upload failed', 'error');
+      throw new Error('Reference sheet upload failed');
+    } finally {
+      setLoading('reference-sheet', false);
+    }
+  };
+
+  const deleteReferenceSheet = async (characterId: string) => {
+    try {
+      const res = await charactersApi.deleteReferenceSheet(characterId);
+      showToast('Reference sheet removed', 'info');
+      return res.data;
+    } catch {
+      showToast('Reference sheet deletion failed', 'error');
+      throw new Error('Reference sheet deletion failed');
+    }
+  };
+
   const startRender = async (shotId: string) => {
     try {
       await renderApi.start(shotId);
@@ -252,6 +277,8 @@ export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error'
     updateShot,
     uploadAnchorFace,
     deleteAnchorFace,
+    uploadReferenceSheet,
+    deleteReferenceSheet,
     startRender,
     startCreativeRender,
     uploadShotClip
