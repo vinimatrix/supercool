@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from app.providers.base import format_character_block
 
 
@@ -14,13 +12,13 @@ def test_format_includes_visual_reference_block():
     assert "VISUAL REFERENCE — Villain" not in block
 
 
-def test_google_builds_image_part_only_when_file_exists(tmp_path, monkeypatch):
+def test_google_builds_image_part_only_when_file_exists(tmp_path):
     from app.providers import google as g
 
-    monkeypatch.setattr(g, "resolve_sheet_path", lambda url: None)
-    assert g.resolve_sheet_path("/uploads/reference_sheets/missing.png") is None
+    missing = tmp_path / "missing.png"
+    assert g.resolve_sheet_path(str(missing)) is None
 
     f = tmp_path / "sheet.png"
     f.write_bytes(b"\x89PNG\r\n\x1a\n")
-    resolved = f
-    assert resolved is not None
+    resolved = g.resolve_sheet_path(str(f))
+    assert resolved == f
