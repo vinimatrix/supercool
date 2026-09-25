@@ -44,7 +44,7 @@ class GoogleProvider(LLMProvider):
             if sheet:
                 parts.append({
                     "inline_data": {
-                        "mime_type": "image/png",
+                        "mime_type": mime_for_sheet(sheet),
                         "data": base64.b64encode(sheet.read_bytes()).decode(),
                     }
                 })
@@ -61,6 +61,20 @@ class GoogleProvider(LLMProvider):
 
     async def health_check(self) -> bool:
         return bool(self.api_key)
+
+
+MIME_BY_SUFFIX = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+
+
+def mime_for_sheet(path: _Path) -> str:
+    """Derive the Gemini mime type from the stored file's suffix."""
+    return MIME_BY_SUFFIX.get(path.suffix.lower(), "image/png")
 
 
 def resolve_sheet_path(url: str | None) -> _Path | None:
