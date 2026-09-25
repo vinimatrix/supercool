@@ -7,6 +7,8 @@ This is NOT a prompt injection system. It's a knowledge base that:
 - Manages voice profiles for dubbing
 """
 
+import uuid as uuid_mod
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,10 +29,12 @@ class StoryBibleService:
         self.context = ProductionContext()
 
     async def get_character(self, character_id: str) -> Character | None:
-        """Get a character by ID."""
-        result = await self.db.execute(
-            select(Character).where(Character.id == character_id)
-        )
+        """Get a character by ID (accepts str or UUID)."""
+        try:
+            cid = uuid_mod.UUID(str(character_id))
+        except ValueError:
+            return None
+        result = await self.db.execute(select(Character).where(Character.id == cid))
         return result.scalar_one_or_none()
 
     async def get_character_by_name(self, name: str, project_id: str) -> Character | None:
@@ -45,15 +49,17 @@ class StoryBibleService:
     async def get_character_context(self, character_id: str) -> dict | None:
         """Get character context for identification.
 
-        Returns face references and traits so the QA system can
-        verify if a character in a shot matches the story bible.
+        Returns face references, traits, and the visual reference data
+        (visual_prompt / reference_sheet_url) so the QA system can verify
+        if a character in a shot matches the story bible and so prompt
+        builders can inject `VISUAL REFERENCE — {name}: {visual_prompt}`.
         """
         character = await self.get_character(character_id)
         if not character:
             return None
 
         result = await self.db.execute(
-            select(AnchorFace).where(AnchorFace.character_id == character_id)
+            select(AnchorFace).where(AnchorFace.character_id == character.id)
         )
         anchor_faces = result.scalars().all()
 
@@ -64,6 +70,8 @@ class StoryBibleService:
             "name": character.name,
             "biography": character.biography,
             "visual_traits": character.locked_traits or [],
+            "visual_prompt": character.visual_prompt,
+            "reference_sheet_url": character.reference_sheet_url,
             "face_references": [
                 {
                     "url": f.image_url,

@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.models.shot import Shot
+from app.providers.base import format_visual_references
 from app.schemas.shot import (
     GenerateRequest,
     GenerateResponse,
@@ -17,6 +18,7 @@ from app.schemas.shot import (
     ShotUpdate,
 )
 from app.services.context_injector import ProductionContext
+from app.services.story_bible import StoryBibleService
 
 router = APIRouter(tags=["shots"])
 
@@ -134,6 +136,15 @@ async def inject_context(
     context_summary = f"Mood: {shot_ctx.mood}, Duration: {shot_ctx.estimated_duration:.1f}s"
     if shot_ctx.characters_present:
         context_summary += f", Characters: {', '.join(shot_ctx.characters_present)}"
+
+    if shot.speaker_character_id:
+        char_ctx = await StoryBibleService(db).get_character_context(
+            str(shot.speaker_character_id)
+        )
+        if char_ctx:
+            visual = format_visual_references([char_ctx])
+            if visual:
+                context_summary = f"{context_summary}\n{visual}"
 
     shot.injected_prompt = context_summary
     shot.assigned_engine = engine

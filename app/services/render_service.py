@@ -6,8 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.render_job import RenderJob
 from app.models.shot import Shot
+from app.providers.base import format_visual_references
 from app.schemas.render_job import RenderJobRead
 from app.services.context_injector import ProductionContext
+from app.services.story_bible import StoryBibleService
 
 
 class RenderService:
@@ -29,7 +31,8 @@ class RenderService:
         if not shot:
             raise ValueError(f"Shot {shot_id} not found")
 
-        injected_prompt = self._build_injected_prompt(shot)
+        characters = await self._load_character_context(shot)
+        injected_prompt = self._build_injected_prompt(shot, characters)
         shot.injected_prompt = injected_prompt
 
         job = RenderJob(
@@ -53,19 +56,34 @@ class RenderService:
             return None
         return RenderJobRead.model_validate(job)
 
-    def _build_injected_prompt(self, shot: Shot) -> str:
-        """Build context summary for the shot."""
+    async def _load_character_context(self, shot: Shot) -> list[dict]:
+        """Load story-bible context (incl. visual_prompt) for the shot's speaker."""
+        if not shot.speaker_character_id:
+            return []
+        ctx = await StoryBibleService(self.db).get_character_context(
+            str(shot.speaker_character_id)
+        )
+        return [ctx] if ctx else []
+
+    def _build_injected_prompt(
+        self, shot: Shot, characters: list[dict] | None = None
+    ) -> str:
+        """Build context summary for the shot, plus visual references if any."""
         shot_ctx = self.ctx.get_shot_context({
             "id": str(shot.id),
             "prompt_text": shot.prompt_text or "",
             "dialogue_text": shot.dialogue_text or "",
         })
         engine = shot.assigned_engine or "FLOW"
-        return (
+        summary = (
             f"Mood: {shot_ctx.mood}, "
             f"Duration: {shot_ctx.estimated_duration:.1f}s, "
             f"Engine: {engine}"
         )
+        visual = format_visual_references(characters or [])
+        if visual:
+            summary = f"{summary}\n{visual}"
+        return summary
 
     def _dispatch_render_task(self, job: RenderJob, shot: Shot, injected_prompt: str):
         """Dispatch the Celery render task. Fails silently if Redis is unavailable."""

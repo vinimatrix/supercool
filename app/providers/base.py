@@ -4,14 +4,24 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 
+def format_visual_references(characters: list[dict]) -> str:
+    """Format `VISUAL REFERENCE — {name}: {visual_prompt}` lines for characters."""
+    lines = []
+    for c in characters:
+        vp = c.get("visual_prompt")
+        if vp and c.get("name"):
+            lines.append(f"VISUAL REFERENCE — {c['name']}: {vp}")
+    return "\n".join(lines)
+
+
 def format_character_block(characters: list[dict]) -> str:
     lines = []
     for c in characters:
         traits = ", ".join(c.get("locked_traits", []))
         lines.append(f"- {c['name']}: {traits}")
-        vp = c.get("visual_prompt")
-        if vp:
-            lines.append(f"VISUAL REFERENCE — {c['name']}: {vp}")
+        visual = format_visual_references([c])
+        if visual:
+            lines.append(visual)
     return "\n".join(lines)
 
 

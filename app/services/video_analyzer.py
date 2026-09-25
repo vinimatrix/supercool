@@ -7,6 +7,7 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
+from app.providers.base import format_visual_references
 
 
 class VideoAnalyzer:
@@ -130,12 +131,13 @@ class VideoAnalyzer:
         prompt_text = shot_info.get("prompt_text", "")
         duration = shot_info.get("duration", 10)
         source = "video" if has_video else "shot description"
+        visual = format_visual_references(shot_info.get("characters") or [])
+        visual_lines = f"\n{visual}\n" if visual else "\n"
         return f"""Analyze this {source} for cinematic editing.
 
 Shot: {prompt_text}
 Duration: {duration}s
-Context: {context if context else "None"}
-
+Context: {context if context else "None"}{visual_lines}
 Return ONLY this JSON, no other text:
 {{
     "emotion": "tense|dramatic|action|calm|mysterious",
