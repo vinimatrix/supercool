@@ -86,8 +86,12 @@ class StoryBibleService:
 
     async def get_all_characters(self, project_id: str) -> list[dict]:
         """Get all characters in a project for identification context."""
+        try:
+            pid = uuid_mod.UUID(str(project_id))
+        except ValueError:
+            return []
         result = await self.db.execute(
-            select(Character).where(Character.project_id == project_id)
+            select(Character).where(Character.project_id == pid)
         )
         characters = result.scalars().all()
 

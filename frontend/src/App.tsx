@@ -96,7 +96,7 @@ function StudioApp() {
     try {
       const context = shotsWithClips.map(s => `Shot ${s.shot_number}: ${s.prompt_text}`).join('. ');
       const clipPaths = shotsWithClips.map(s => s.video_path!);
-      const result = await api.startCreativeRender(clipPaths, context);
+      const result = await api.startCreativeRender(clipPaths, context, selectedProject?.id);
       setCreativeResult(result);
       setChatMessages(prev => [
         ...prev,

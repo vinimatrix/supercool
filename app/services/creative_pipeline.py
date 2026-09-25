@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.services.audio_engine import AudioEngine, AudioTrack, SoundLayer
@@ -12,6 +12,30 @@ from app.services.creative_editor import ClipEdit, CreativeEditor, TransitionTyp
 from app.services.director_ai import DirectorAI
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def shape_characters(characters: list[dict]) -> list[dict]:
+    """Normalize story-bible character contexts for shot-dict prompt injection."""
+    return [
+        {
+            "name": c.get("name"),
+            "locked_traits": c.get("locked_traits") or c.get("visual_traits") or [],
+            "visual_prompt": c.get("visual_prompt"),
+            "reference_sheet_url": c.get("reference_sheet_url"),
+        }
+        for c in characters
+    ]
+
+
+def build_shot_dict(index: int, path: str, info: dict, characters: list[dict]) -> dict:
+    """Build the shot dict consumed by DirectorAI/VideoAnalyzer, incl. characters."""
+    return {
+        "id": str(index),
+        "prompt_text": os.path.basename(path),
+        "duration": float(info["format"]["duration"]),
+        "video_path": path,  # Pass video path for analysis
+        "characters": characters,
+    }
 
 
 @dataclass
@@ -24,6 +48,8 @@ class PipelineConfig:
     enable_audio: bool = True
     enable_color: bool = True
     enable_transitions: bool = True
+    # Story-bible characters for the project this render belongs to (visual references)
+    characters: list[dict] = field(default_factory=list)
 
 
 class CreativePipeline:
@@ -48,15 +74,11 @@ class CreativePipeline:
         if self.director.use_video_analysis:
             print("  [Video Understanding: ENABLED via NVIDIA NIM]")
 
+        characters = shape_characters(config.characters)
         shots = []
         for i, path in enumerate(clip_paths):
             info = self._get_clip_info(path)
-            shots.append({
-                "id": str(i),
-                "prompt_text": os.path.basename(path),
-                "duration": float(info["format"]["duration"]),
-                "video_path": path,  # Pass video path for analysis
-            })
+            shots.append(build_shot_dict(i, path, info, characters))
 
         # Use async analysis if video understanding is enabled
         if self.director.use_video_analysis:

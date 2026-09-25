@@ -3,7 +3,8 @@
 Covers the three live prompt paths from code review:
 - StoryBibleService.get_character_context (the seam)
 - RenderService._build_injected_prompt (via start_render)
-- VideoAnalyzer._build_prompt
+- VideoAnalyzer._build_prompt — fed by the creative-pipeline producer (shot dicts),
+  which sources characters from the story bible via the /creative/render route
 """
 
 import uuid
@@ -115,3 +116,84 @@ def test_video_analyzer_prompt_omits_visual_reference_when_absent():
     )
 
     assert "VISUAL REFERENCE" not in prompt
+
+
+async def test_producer_shot_dict_carries_characters_into_video_analyzer_prompt(session):
+    """The shot dict built by the creative-pipeline producer carries characters."""
+    from app.services.creative_pipeline import build_shot_dict, shape_characters
+    from app.services.story_bible import StoryBibleService
+    from app.services.video_analyzer import VideoAnalyzer
+
+    char = await _make_character(
+        session,
+        visual_prompt="white cloak",
+        reference_sheet_url="/uploads/reference_sheets/sheet.png",
+    )
+
+    # Same source the /creative/render route uses to populate the pipeline config
+    characters = shape_characters(
+        await StoryBibleService(session).get_all_characters(str(char.project_id))
+    )
+    shot = build_shot_dict(
+        0, "workspace/clip.mp4", {"format": {"duration": "4.5"}}, characters
+    )
+
+    assert shot["characters"] == [
+        {
+            "name": "Hero",
+            "locked_traits": [],
+            "visual_prompt": "white cloak",
+            "reference_sheet_url": "/uploads/reference_sheets/sheet.png",
+        }
+    ]
+
+    prompt = VideoAnalyzer()._build_prompt(shot, "", has_video=False)
+    assert "VISUAL REFERENCE — Hero: white cloak" in prompt
+
+
+async def test_creative_route_loads_project_characters_into_pipeline_config(
+    client, monkeypatch, tmp_path
+):
+    """POST /creative/render fetches story-bible characters for the given project."""
+    from app.api.routes import creative
+
+    captured = {}
+
+    class FakePipeline:
+        def run(self, clip_paths, config):
+            captured["config"] = config
+            return {
+                "final_output": "out.mp4",
+                "video_only": "vid.mp4",
+                "duration": 1.0,
+                "shots": len(clip_paths),
+                "mood": "calm",
+                "music_crescendo": False,
+                "edit_plan": {
+                    "timeline_segments": [],
+                    "speed_adjustments": [],
+                    "color_grades": [],
+                    "transition_points": [],
+                },
+            }
+
+    monkeypatch.setattr(creative, "CreativePipeline", FakePipeline)
+
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"fake")
+
+    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
+    await client.post(
+        f"/api/v1/projects/{proj['id']}/characters",
+        json={"name": "Hero", "visual_prompt": "white cloak"},
+    )
+
+    resp = await client.post(
+        "/api/v1/creative/render",
+        json={"clip_paths": [str(clip)], "project_id": proj["id"]},
+    )
+
+    assert resp.status_code == 200
+    characters = captured["config"].characters
+    assert characters and characters[0]["name"] == "Hero"
+    assert characters[0]["visual_prompt"] == "white cloak"

@@ -3,11 +3,15 @@
 import asyncio
 import os
 from pathlib import Path
+from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_db
 from app.services.creative_pipeline import CreativePipeline, PipelineConfig
+from app.services.story_bible import StoryBibleService
 
 router = APIRouter(tags=["creative"])
 
@@ -22,6 +26,7 @@ class CreativeRenderRequest(BaseModel):
     output_name: str = "render"
     master_volume: float = 1.0
     enable_audio: bool = True
+    project_id: UUID | None = None
 
 
 class CreativeRenderResponse(BaseModel):
@@ -38,7 +43,9 @@ class CreativeRenderResponse(BaseModel):
 
 
 @router.post("/creative/render", response_model=CreativeRenderResponse)
-async def creative_render(data: CreativeRenderRequest):
+async def creative_render(
+    data: CreativeRenderRequest, db: AsyncSession = Depends(get_db)
+):
     """Run the full AI creative pipeline on uploaded clips."""
     # Validate clips exist
     existing = []
@@ -59,6 +66,11 @@ async def creative_render(data: CreativeRenderRequest):
             detail=f"No valid clips found. Searched: {data.clip_paths}",
         )
 
+    # Story-bible characters for the project → shot dicts → video_analyzer prompt
+    characters: list[dict] = []
+    if data.project_id:
+        characters = await StoryBibleService(db).get_all_characters(str(data.project_id))
+
     pipeline = CreativePipeline()
     config = PipelineConfig(
         workspace=str(WORKSPACE),
@@ -66,6 +78,7 @@ async def creative_render(data: CreativeRenderRequest):
         scene_context=data.scene_context,
         master_volume=data.master_volume,
         enable_audio=data.enable_audio,
+        characters=characters,
     )
 
     try:

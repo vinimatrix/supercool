@@ -245,12 +245,13 @@ export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error'
     }
   };
 
-  const startCreativeRender = async (clipPaths: string[], context: string) => {
+  const startCreativeRender = async (clipPaths: string[], context: string, projectId?: string) => {
     try {
       const result = await creativeApi.render({
         clip_paths: clipPaths,
         scene_context: context,
         output_name: 'final_render',
+        project_id: projectId,
       });
       showToast('Cinematic render complete', 'success');
       return result.data;

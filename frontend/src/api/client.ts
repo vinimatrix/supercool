@@ -157,6 +157,7 @@ export const creativeApi = {
     output_name?: string;
     master_volume?: number;
     enable_audio?: boolean;
+    project_id?: string;
   }) => api.post<CreativeRenderResult>('/creative/render', data),
   workspace: () => api.get<WorkspaceFile[]>('/creative/workspace'),
 };
