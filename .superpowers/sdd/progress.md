@@ -158,3 +158,4 @@
 | Task 4: Lipsync API routes | DONE | d1bcfb0 |
 | Task 5: Frontend API + context | DONE | cd733e0 |
 | Task 6: LipsyncPanel + tab wiring | DONE | 6f0effb |
+| Task 7: Verification + smoke | DONE | e5d1dd1 | 160 backend + 45 frontend tests, live smoke OK, ruff 300 (~299 baseline) |
