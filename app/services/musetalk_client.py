@@ -1,15 +1,14 @@
 """MuseTalk 1.5 client for lip-sync integration."""
 
-import os
-import uuid
 import json
+import logging
+import os
 import shutil
 import subprocess
-import logging
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from app.config import settings
 
@@ -32,7 +31,7 @@ class LipSyncConfig:
 class MuseTalkClient:
     """Client for MuseTalk 1.5 lip-sync engine."""
 
-    def __init__(self, model_path: Optional[str] = None, musetalk_dir: Optional[str] = None):
+    def __init__(self, model_path: str | None = None, musetalk_dir: str | None = None):
         self.output_dir = Path("./workspace/lipsync")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.musetalk_dir = os.path.abspath(musetalk_dir) if musetalk_dir else MUSOTALK_DIR
@@ -46,12 +45,12 @@ class MuseTalkClient:
 
         cmd = ["python", os.path.join(self.musetalk_dir, "scripts", "inference.py")] + args
         logger.info("Running MuseTalk: %s", " ".join(cmd))
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env, check=False)
 
     def prepare_avatar(
         self,
         video_path: str,
-        output_filename: Optional[str] = None,
+        output_filename: str | None = None,
     ) -> str:
         if output_filename is None:
             output_filename = f"avatar_{uuid.uuid4().hex[:8]}"
@@ -78,7 +77,7 @@ class MuseTalkClient:
         video_path: str,
         audio_path: str,
         config: LipSyncConfig,
-        output_filename: Optional[str] = None,
+        output_filename: str | None = None,
         strict: bool = False,
     ) -> str:
         if output_filename is None:
@@ -140,7 +139,7 @@ class MuseTalkClient:
         video_path: str,
         audio_path: str,
         emotion: str = "neutral",
-        output_filename: Optional[str] = None,
+        output_filename: str | None = None,
     ) -> str:
         emotion_shifts = {
             "neutral": 0, "happy": 2, "sad": -1,

@@ -21,6 +21,7 @@ def probe_duration(path: str | Path) -> float:
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     if result.returncode != 0:
         raise ValueError(f"ffprobe failed for {path}")

@@ -261,7 +261,7 @@ async def test_assign_requires_done_job(client, tmp_path, monkeypatch, session_f
     _patch_workspace(monkeypatch, tmp_path)
     _record_run_job(monkeypatch)
     project_id = await _create_project(client)
-    scene_id, shot_id = await _create_shot(client, project_id)
+    _scene_id, shot_id = await _create_shot(client, project_id)
     created = (
         await client.post(
             "/api/v1/lipsync/jobs",

@@ -33,28 +33,34 @@ def test_align_strict_raises_on_failed_inference(tmp_path):
     client = _client(tmp_path)
     video, audio = _inputs(tmp_path)
     failed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="boom")
-    with patch.object(client, "_run_musetalk", return_value=failed):
-        with pytest.raises(RuntimeError, match="MuseTalk failed"):
-            client.align_lip_sync(str(video), str(audio), LipSyncConfig(), strict=True)
+    with (
+        patch.object(client, "_run_musetalk", return_value=failed),
+        pytest.raises(RuntimeError, match="MuseTalk failed"),
+    ):
+        client.align_lip_sync(str(video), str(audio), LipSyncConfig(), strict=True)
 
 
 def test_align_strict_raises_when_output_missing(tmp_path):
     client = _client(tmp_path)
     video, audio = _inputs(tmp_path)
     ok = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-    with patch.object(client, "_run_musetalk", return_value=ok):
-        with pytest.raises(RuntimeError, match="MuseTalk produced no output"):
-            client.align_lip_sync(
-                str(video), str(audio), LipSyncConfig(), output_filename="out.mp4", strict=True
-            )
+    with (
+        patch.object(client, "_run_musetalk", return_value=ok),
+        pytest.raises(RuntimeError, match="MuseTalk produced no output"),
+    ):
+        client.align_lip_sync(
+            str(video), str(audio), LipSyncConfig(), output_filename="out.mp4", strict=True
+        )
 
 
 def test_align_strict_wraps_exceptions(tmp_path):
     client = _client(tmp_path)
     video, audio = _inputs(tmp_path)
-    with patch.object(client, "_run_musetalk", side_effect=TimeoutError("timed out")):
-        with pytest.raises(RuntimeError, match="MuseTalk failed"):
-            client.align_lip_sync(str(video), str(audio), LipSyncConfig(), strict=True)
+    with (
+        patch.object(client, "_run_musetalk", side_effect=TimeoutError("timed out")),
+        pytest.raises(RuntimeError, match="MuseTalk failed"),
+    ):
+        client.align_lip_sync(str(video), str(audio), LipSyncConfig(), strict=True)
 
 
 def test_align_lenient_still_returns_on_failure(tmp_path):

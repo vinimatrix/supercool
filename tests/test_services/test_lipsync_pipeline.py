@@ -29,9 +29,11 @@ def test_probe_duration_raises_on_ffprobe_failure():
 def test_trim_audio_shorter_than_selection_raises(tmp_path):
     audio = tmp_path / "short.wav"
     audio.write_bytes(b"RIFF")
-    with patch.object(lp, "probe_duration", return_value=1.0):
-        with pytest.raises(ValueError, match="audio shorter than selection"):
-            lp.trim_media(str(audio), 0.0, 5.0, str(tmp_path / "out.wav"))
+    with (
+        patch.object(lp, "probe_duration", return_value=1.0),
+        pytest.raises(ValueError, match="audio shorter than selection"),
+    ):
+        lp.trim_media(str(audio), 0.0, 5.0, str(tmp_path / "out.wav"))
 
 
 def test_trim_video_uses_stream_copy(tmp_path):

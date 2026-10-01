@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import String
 
 from app.config import settings
 
@@ -17,7 +16,8 @@ def get_uuid_type():
     if settings.database_url.startswith("postgresql"):
         from sqlalchemy.dialects.postgresql import UUID as PG_UUID
         return PG_UUID(as_uuid=True)
-    return String(36)
+    from sqlalchemy import Uuid
+    return Uuid(as_uuid=True)
 
 
 def get_json_type():
