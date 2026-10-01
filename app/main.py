@@ -12,6 +12,7 @@ from app.api.routes import (
     creative,
     davinci_resolve,
     drift,
+    lipsync,
     mcp,
     nle,
     pipeline,
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(qa.router, prefix="/api/v1")
     app.include_router(nle.router, prefix="/api/v1")
     app.include_router(voice.router, prefix="/api/v1")
+    app.include_router(lipsync.router, prefix="/api/v1")
     app.include_router(mcp.router, prefix="/api/v1")
     app.include_router(production.router, prefix="/api/v1")
     app.include_router(pipeline.router, prefix="/api/v1")

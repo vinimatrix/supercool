@@ -164,7 +164,7 @@ def app():
 
 
 @pytest.fixture
-async def client(app):
+async def db_engine():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         await conn.execute(text(CREATE_PROJECTS))
@@ -175,10 +175,19 @@ async def client(app):
         await conn.execute(text(CREATE_RENDER_JOBS))
         await conn.execute(text(CREATE_SHOOTS))
         await conn.execute(text(CREATE_LIPSYNC_JOBS))
-    test_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    yield engine
+    await engine.dispose()
 
+
+@pytest.fixture
+async def session_factory(db_engine):
+    return async_sessionmaker(db_engine, class_=AsyncSession, expire_on_commit=False)
+
+
+@pytest.fixture
+async def client(app, session_factory):
     async def override_get_db():
-        async with test_session_factory() as session:
+        async with session_factory() as session:
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
@@ -188,4 +197,3 @@ async def client(app):
         yield ac
 
     app.dependency_overrides.clear()
-    await engine.dispose()
