@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 MUSOTALK_DIR = os.path.abspath(
@@ -106,7 +108,7 @@ class MuseTalkClient:
                     "--version", "v15",
                     "--unet_config", "./models/musetalkV15/musetalk.json",
                     "--unet_model_path", "./models/musetalkV15/unet.pth",
-                ], timeout=600)
+                ], timeout=settings.musetalk_timeout)
 
                 if result.returncode != 0:
                     if strict:
