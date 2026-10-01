@@ -11,6 +11,16 @@ vi.mock('../api/client', () => ({
   renderApi: { start: vi.fn(), getJob: vi.fn() },
   anchorFacesApi: { list: vi.fn(), upload: vi.fn(), delete: vi.fn() },
   creativeApi: { render: vi.fn(), workspace: vi.fn() },
+  lipsyncApi: {
+    listVideos: vi.fn(),
+    listAudios: vi.fn(),
+    uploadVideo: vi.fn(),
+    uploadAudio: vi.fn(),
+    createJob: vi.fn(),
+    listJobs: vi.fn(),
+    getJob: vi.fn(),
+    assignJob: vi.fn(),
+  },
 }));
 
 vi.mock('../api/drift', () => ({

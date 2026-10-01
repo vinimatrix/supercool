@@ -161,3 +161,68 @@ export const creativeApi = {
   }) => api.post<CreativeRenderResult>('/creative/render', data),
   workspace: () => api.get<WorkspaceFile[]>('/creative/workspace'),
 };
+
+export interface MediaItem {
+  path: string;
+  name: string;
+  size: number;
+  duration: number | null;
+}
+
+export interface LipsyncJob {
+  id: string;
+  project_id: string;
+  status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
+  stage: 'TRIMMING' | 'INFERRING' | 'FINALIZING' | null;
+  video_source: string;
+  trim_start: number;
+  trim_end: number;
+  audio_path: string;
+  output_path: string | null;
+  shot_id: string | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface LipsyncJobCreateBody {
+  project_id: string;
+  video_path: string;
+  trim_start: number;
+  trim_end: number;
+  audio_path: string;
+  shot_id?: string;
+}
+
+export const lipsyncApi = {
+  listVideos: (projectId?: string) =>
+    api.get<MediaItem[]>('/lipsync/videos', {
+      params: projectId ? { project_id: projectId } : undefined,
+    }),
+  listAudios: (projectId?: string) =>
+    api.get<MediaItem[]>('/lipsync/audios', {
+      params: projectId ? { project_id: projectId } : undefined,
+    }),
+  uploadVideo: (projectId: string | undefined, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<MediaItem>('/lipsync/videos', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: projectId ? { project_id: projectId } : undefined,
+    });
+  },
+  uploadAudio: (projectId: string | undefined, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<MediaItem>('/lipsync/audios', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      params: projectId ? { project_id: projectId } : undefined,
+    });
+  },
+  createJob: (data: LipsyncJobCreateBody) => api.post<LipsyncJob>('/lipsync/jobs', data),
+  listJobs: (projectId: string) =>
+    api.get<LipsyncJob[]>('/lipsync/jobs', { params: { project_id: projectId } }),
+  getJob: (id: string) => api.get<LipsyncJob>(`/lipsync/jobs/${id}`),
+  assignJob: (id: string, shotId: string) =>
+    api.post<LipsyncJob>(`/lipsync/jobs/${id}/assign`, { shot_id: shotId }),
+};

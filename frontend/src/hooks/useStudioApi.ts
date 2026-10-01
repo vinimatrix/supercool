@@ -6,9 +6,10 @@ import {
   shotsApi,
   renderApi,
   anchorFacesApi,
-  creativeApi
+  creativeApi,
+  lipsyncApi
 } from '../api/client';
-import type { Character, Scene, Shot } from '../api/client';
+import type { Character, Scene, Shot, LipsyncJob, LipsyncJobCreateBody } from '../api/client';
 
 export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error' | 'info') => void) => {
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
@@ -261,6 +262,34 @@ export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error'
     }
   };
 
+  const createLipsyncJob = async (body: LipsyncJobCreateBody): Promise<LipsyncJob | null> => {
+    setLoading('lipsync-job', true);
+    try {
+      const res = await lipsyncApi.createJob(body);
+      showToast('Lipsync job started', 'success');
+      return res.data;
+    } catch {
+      showToast('Failed to start lipsync job', 'error');
+      return null;
+    } finally {
+      setLoading('lipsync-job', false);
+    }
+  };
+
+  const assignLipsyncJob = async (jobId: string, shotId: string): Promise<LipsyncJob | null> => {
+    setLoading('lipsync-assign', true);
+    try {
+      const res = await lipsyncApi.assignJob(jobId, shotId);
+      showToast('Lipsync result assigned to shot', 'success');
+      return res.data;
+    } catch {
+      showToast('Failed to assign lipsync result', 'error');
+      return null;
+    } finally {
+      setLoading('lipsync-assign', false);
+    }
+  };
+
   return {
     loadingStates,
     setLoading,
@@ -282,6 +311,8 @@ export const useStudioApi = (showToast: (msg: string, type?: 'success' | 'error'
     deleteReferenceSheet,
     startRender,
     startCreativeRender,
-    uploadShotClip
+    uploadShotClip,
+    createLipsyncJob,
+    assignLipsyncJob
   };
 };

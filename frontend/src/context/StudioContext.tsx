@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import * as API from '../api/client';
 import type { EditPlan } from '../api/drift';
 
-export type StudioTab = 'story' | 'qa' | 'analytics' | 'youtube' | 'drift';
+export type StudioTab = 'story' | 'qa' | 'analytics' | 'youtube' | 'drift' | 'lipsync';
 
 interface StudioContextType {
   // Core Data
