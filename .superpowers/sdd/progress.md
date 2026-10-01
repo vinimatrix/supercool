@@ -145,3 +145,16 @@
 | Task 6: Wire Sidebar + CommandCenter widths | DONE | 553de22 |
 | Task 7: Frontend API client + useStudioApi methods | DONE | ad1edb9 |
 | Task 8: AssetsPanel + PersonnelDossier UI | DONE | 9a86828, 3bedc5a |
+| Task 9: Full verification + final commit | DONE | dd478ec, fe1bbb8, 422d7aa |
+| Final review + fixes | DONE | dd478ec..9534f83 (pipeline wiring, upload hardening, dev deps) |
+
+## MuseTalk Lipsync Module (2026-09-30)
+
+| Task | Status | Commits |
+|------|--------|---------|
+| Task 1: LipsyncJob model + migration + schemas | DONE | e4a0355 |
+| Task 2: Settings + MuseTalk strict mode | DONE | 41ce23c |
+| Task 3: Lipsync pipeline service | DONE | 85eacfa |
+| Task 4: Lipsync API routes | DONE | d1bcfb0 |
+| Task 5: Frontend API + context | DONE | cd733e0 |
+| Task 6: LipsyncPanel + tab wiring | DONE | 6f0effb |

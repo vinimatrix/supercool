@@ -1,114 +1,92 @@
-### Task 2: PUT /characters/{id} update endpoint (missing backend route)
+### Task 2: Settings additions + MuseTalk client strict mode
 
 **Files:**
-- Create: `app/api/routes/characters.py`
-- Modify: `app/main.py` (include router)
-- Test: `tests/test_api/test_characters.py`
+- Modify: `app/config.py`
+- Modify: `app/services/musetalk_client.py`
+- Test: `tests/test_services/test_musetalk_strict.py`
 
 **Interfaces:**
-- Consumes: `CharacterUpdate` schema from Task 1 family.
-- Produces: `PUT /api/v1/characters/{character_id}` accepting `{name?, biography?, locked_traits?, visual_prompt?}` → `CharacterRead`.
+- Produces: `settings.musetalk_dir: str` (default `""` → resolved against `BASE_DIR/musetalk`), `settings.musetalk_timeout: int` (default `3600`); `MuseTalkClient.align_lip_sync(..., strict: bool = False)` raising `RuntimeError` in strict mode.
 
-Note: frontend `charactersApi.update` already calls `PUT /characters/{id}` but no route exists — this task adds it.
+- [ ] **Step 1: Write failing tests**
 
-- [ ] **Step 1: Write failing test**
-
-Create `tests/test_api/test_characters.py`:
+Create `tests/test_services/test_musetalk_strict.py`:
 
 ```python
-async def test_update_character_visual_prompt(client):
-    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
-    char = (
-        await client.post(
-            f"/api/v1/projects/{proj['id']}/characters",
-            json={"name": "Hero"},
-        )
-    ).json()
-    resp = await client.put(
-        f"/api/v1/characters/{char['id']}",
-        json={"visual_prompt": "pale skin, white cloak", "name": "Hero Prime"},
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["visual_prompt"] == "pale skin, white cloak"
-    assert data["name"] == "Hero Prime"
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from app.config import settings
+from app.services.musetalk_client import MuseTalkClient
 
 
-async def test_update_character_not_found(client):
-    resp = await client.put(
-        "/api/v1/characters/00000000-0000-0000-0000-000000000099",
-        json={"visual_prompt": "x"},
-    )
-    assert resp.status_code == 404
+def test_settings_musetalk_fields():
+    assert hasattr(settings, "musetalk_dir")
+    assert hasattr(settings, "musetalk_timeout")
+    assert settings.musetalk_timeout > 0
+
+
+def test_align_strict_raises_on_failed_inference(tmp_path):
+    client = MuseTalkClient(musetalk_dir=str(tmp_path))
+    video = tmp_path / "src.mp4"
+    audio = tmp_path / "a.wav"
+    video.write_bytes(b"x")
+    audio.write_bytes(b"x")
+    with patch.object(client, "_run_musetalk", return_value=(False, "", "boom")):
+        with pytest.raises(RuntimeError, match="MuseTalk failed"):
+            client.align_lip_sync(str(video), str(audio), {}, strict=True)
+
+
+def test_align_strict_raises_when_output_missing(tmp_path):
+    client = MuseTalkClient(musetalk_dir=str(tmp_path))
+    video = tmp_path / "src.mp4"
+    audio = tmp_path / "a.wav"
+    video.write_bytes(b"x")
+    audio.write_bytes(b"x")
+    with patch.object(client, "_run_musetalk", return_value=(True, "", "")):
+        with pytest.raises(RuntimeError, match="MuseTalk produced no output"):
+            client.align_lip_sync(str(video), str(audio), {}, output_filename="out.mp4", strict=True)
+
+
+def test_align_lenient_still_returns_on_failure(tmp_path):
+    client = MuseTalkClient(musetalk_dir=str(tmp_path))
+    video = tmp_path / "src.mp4"
+    audio = tmp_path / "a.wav"
+    video.write_bytes(b"x")
+    audio.write_bytes(b"x")
+    with patch.object(client, "_run_musetalk", return_value=(False, "", "boom")):
+        result = client.align_lip_sync(str(video), str(audio), {})
+        assert Path(result).exists()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run tests to verify failure**
 
-Run: `python -m pytest tests/test_api/test_characters.py -v`
-Expected: FAIL (405/404 — no PUT route)
+Run: `python -m pytest tests/test_services/test_musetalk_strict.py -v`
+Expected: FAIL (`TypeError: unexpected keyword 'strict'` / missing settings attrs)
 
-- [ ] **Step 3: Implement schema + route**
+- [ ] **Step 3: Read current code, then implement**
 
-In `app/schemas/character.py` add:
+First read `app/config.py` and `app/services/musetalk_client.py` in full (also confirm `_run_musetalk` return signature — adjust test/impl to match reality; the tests above assume `(success: bool, stdout: str, stderr: str)`).
 
-```python
-class CharacterUpdate(BaseModel):
-    name: str | None = None
-    biography: str | None = None
-    locked_traits: list[str] | None = None
-    visual_prompt: str | None = None
-```
+- Add to `Settings`:
+  ```python
+  musetalk_dir: str = ""
+  musetalk_timeout: int = 3600
+  ```
+- In `MuseTalkClient.align_lip_sync`, accept `strict: bool = False`. When inference reports failure: if strict → `raise RuntimeError(f"MuseTalk failed: {stderr or stdout}")`; else keep existing lenient source-copy behavior. When success but output missing: if strict → `raise RuntimeError("MuseTalk produced no output video")`; else keep existing behavior.
+- Do **not** change existing call sites (`voice.py` keeps default lenient).
 
-Create `app/api/routes/characters.py`:
+- [ ] **Step 4: Run tests to verify pass**
 
-```python
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.api.deps import get_db
-from app.models.character import Character
-from app.schemas.character import CharacterRead, CharacterUpdate
-
-router = APIRouter(tags=["characters"])
-
-
-@router.put("/characters/{character_id}", response_model=CharacterRead)
-async def update_character(
-    character_id: UUID, data: CharacterUpdate, db: AsyncSession = Depends(get_db)
-):
-    char = await db.get(Character, character_id)
-    if not char:
-        raise HTTPException(status_code=404, detail="Character not found")
-    fields = data.model_dump(exclude_unset=True)
-    for key, value in fields.items():
-        setattr(char, key, value)
-    await db.commit()
-    await db.refresh(char)
-    return char
-```
-
-- [ ] **Step 4: Register router in main.py**
-
-In `app/main.py` imports add `characters` to the routes import list, and after `anchor_faces` include:
-
-```python
-    app.include_router(characters.router, prefix="/api/v1")
-```
-
-- [ ] **Step 5: Run tests**
-
-Run: `python -m pytest tests/test_api/test_characters.py -v`
+Run: `python -m pytest tests/test_services/test_musetalk_strict.py -q`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/api/routes/characters.py app/schemas/character.py app/main.py tests/test_api/test_characters.py
-git commit -m "feat: add PUT /characters/{id} update endpoint"
+git add app/config.py app/services/musetalk_client.py tests/test_services/test_musetalk_strict.py
+git commit -m "feat: strict mode for MuseTalk client + lipsync settings"
 ```
-
----
 

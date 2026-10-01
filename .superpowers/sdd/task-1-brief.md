@@ -1,143 +1,234 @@
-### Task 1: Character model + Alembic migration + schemas
+### Task 1: LipsyncJob model + migration + schemas + conftest
 
 **Files:**
-- Modify: `app/models/character.py` (Character class, lines ~16–30)
-- Create: `alembic/versions/<new>_add_character_reference_fields.py` (down_revision=`fcae66ea5e4b`)
-- Modify: `app/schemas/character.py`
-- Modify: `tests/conftest.py` (CREATE_CHARACTERS SQL)
-- Test: `tests/test_models/test_models.py`
+- Create: `app/models/lipsync_job.py`
+- Modify: `app/models/__init__.py`
+- Create: `alembic/versions/add_lipsync_jobs.py` (down_revision=`c0ffee123abc`)
+- Create: `app/schemas/lipsync.py`
+- Modify: `tests/conftest.py` (CREATE_LIPSYNC_JOBS + execute in `client` fixture)
+- Test: `tests/test_models/test_lipsync_job.py`
 
 **Interfaces:**
-- Produces: `Character.reference_sheet_url: str | None`, `Character.visual_prompt: str | None`; `CharacterRead`/`CharacterCreate` expose `visual_prompt: str | None = None` (and `reference_sheet_url: str | None = None` on Read only).
+- Produces: `LipsyncJob` model; schemas `LipsyncJobRead`, `LipsyncJobCreate`, `LipsyncAssignRequest`, `MediaItem`; DDL `CREATE_LIPSYNC_JOBS`.
 
-- [ ] **Step 1: Write the failing model/schema test**
+- [ ] **Step 1: Write failing model/schema test**
 
-Append to `tests/test_models/test_models.py`:
+Create `tests/test_models/test_lipsync_job.py`:
 
 ```python
-from app.models.character import Character
-from app.schemas.character import CharacterCreate, CharacterRead
+import app.models  # noqa: F401
+from app.db.database import Base
+from app.models.lipsync_job import LipsyncJob
+from app.schemas.lipsync import LipsyncJobRead, MediaItem
 
 
-def test_character_has_reference_fields():
-    c = Character(name="Hero")
-    assert hasattr(c, "reference_sheet_url")
-    assert hasattr(c, "visual_prompt")
+def test_lipsync_job_registered_and_columns():
+    assert "lipsync_jobs" in Base.metadata.tables
+    cols = Base.metadata.tables["lipsync_jobs"].columns
+    for name in (
+        "id", "project_id", "status", "stage", "video_source", "trim_start",
+        "trim_end", "audio_path", "output_path", "shot_id", "error",
+        "created_at", "completed_at",
+    ):
+        assert name in cols, f"missing column {name}"
 
 
-def test_character_schemas_expose_visual_prompt():
-    create = CharacterCreate(name="Hero", visual_prompt="scar over left eye")
-    assert create.visual_prompt == "scar over left eye"
-    read = CharacterRead.model_validate(
-        {
-            "id": "00000000-0000-0000-0000-000000000001",
-            "project_id": "00000000-0000-0000-0000-000000000002",
-            "name": "Hero",
-            "biography": None,
-            "locked_traits": [],
-            "voice_profile_id": None,
-            "created_at": "2026-01-01T00:00:00",
-            "reference_sheet_url": "/uploads/reference_sheets/a.png",
-            "visual_prompt": "tall",
-        }
+def test_lipsync_job_defaults():
+    job = LipsyncJob(
+        video_source="workspace/shots/a.mp4", trim_start=0.0, trim_end=5.0,
+        audio_path="workspace/audio/b.wav",
     )
-    assert read.reference_sheet_url.endswith("a.png")
-    assert read.visual_prompt == "tall"
+    assert job.status == "PENDING"
+    assert job.stage is None
+
+
+def test_schemas():
+    item = MediaItem(path="workspace/shots/a.mp4", name="a.mp4", size=10, duration=3.5)
+    assert item.duration == 3.5
+    read = LipsyncJobRead.model_validate({
+        "id": "00000000-0000-0000-0000-000000000001",
+        "project_id": "00000000-0000-0000-0000-000000000002",
+        "status": "PENDING", "stage": None,
+        "video_source": "w/a.mp4", "trim_start": 0.0, "trim_end": 4.0,
+        "audio_path": "w/b.wav", "output_path": None, "shot_id": None,
+        "error": None, "created_at": "2026-01-01T00:00:00", "completed_at": None,
+    })
+    assert read.status == "PENDING"
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_models/test_models.py -v`
-Expected: FAIL (`AttributeError` / missing schema field)
+Run: `python -m pytest tests/test_models/test_lipsync_job.py -v`
+Expected: FAIL (`ModuleNotFoundError: app.models.lipsync_job`)
 
-- [ ] **Step 3: Implement model fields**
+- [ ] **Step 3: Implement model**
 
-In `app/models/character.py` inside `Character`, after `voice_profile_id`:
+Create `app/models/lipsync_job.py`:
 
 ```python
-    reference_sheet_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    visual_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.database import Base, get_uuid_type
+
+
+class LipsyncJob(Base):
+    __tablename__ = "lipsync_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(get_uuid_type(), primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        get_uuid_type(), ForeignKey("projects.id", ondelete="CASCADE")
+    )
+    status: Mapped[str] = mapped_column(String(50), default="PENDING")
+    stage: Mapped[str | None] = mapped_column(String(50))
+    video_source: Mapped[str] = mapped_column(Text, nullable=False)
+    trim_start: Mapped[float] = mapped_column(Float, nullable=False)
+    trim_end: Mapped[float] = mapped_column(Float, nullable=False)
+    audio_path: Mapped[str] = mapped_column(Text, nullable=False)
+    output_path: Mapped[str | None] = mapped_column(Text)
+    shot_id: Mapped[uuid.UUID | None] = mapped_column(
+        get_uuid_type(), ForeignKey("shots.id", ondelete="SET NULL")
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 ```
+
+In `app/models/__init__.py` add `from app.models.lipsync_job import LipsyncJob` and `"LipsyncJob"` to `__all__`.
 
 - [ ] **Step 4: Implement schemas**
 
-In `app/schemas/character.py`:
+Create `app/schemas/lipsync.py`:
 
 ```python
-class CharacterCreate(BaseModel):
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict
+
+
+class MediaItem(BaseModel):
+    path: str
     name: str
-    biography: str | None = None
-    locked_traits: list[str] = []
-    voice_profile_id: str | None = None
-    visual_prompt: str | None = None
+    size: int
+    duration: float | None = None
 
 
-class CharacterRead(BaseModel):
+class LipsyncJobCreate(BaseModel):
+    project_id: UUID
+    video_path: str
+    trim_start: float
+    trim_end: float
+    audio_path: str
+    shot_id: UUID | None = None
+
+
+class LipsyncAssignRequest(BaseModel):
+    shot_id: UUID
+
+
+class LipsyncJobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     project_id: UUID
-    name: str
-    biography: str | None = None
-    locked_traits: list[str] = []
-    voice_profile_id: str | None = None
+    status: str
+    stage: str | None = None
+    video_source: str
+    trim_start: float
+    trim_end: float
+    audio_path: str
+    output_path: str | None = None
+    shot_id: UUID | None = None
+    error: str | None = None
     created_at: datetime
-    visual_prompt: str | None = None
-    reference_sheet_url: str | None = None
+    completed_at: datetime | None = None
 ```
 
-- [ ] **Step 5: Update test conftest CREATE_CHARACTERS**
+- [ ] **Step 5: Create Alembic migration**
 
-In `tests/conftest.py` `CREATE_CHARACTERS`, add columns after `voice_profile_id`:
-
-```sql
-    reference_sheet_url TEXT,
-    visual_prompt TEXT,
-```
-
-- [ ] **Step 6: Create Alembic migration**
-
-Create `alembic/versions/add_character_reference_fields.py`:
+First read `alembic/versions/fcae66ea5e4b_add_video_path_to_shots.py` to mirror its id/FK column style (PG UUID vs String). Create `alembic/versions/add_lipsync_jobs.py`:
 
 ```python
-"""add character reference_sheet_url and visual_prompt
+"""add lipsync_jobs table
 
-Revision ID: c0ffee123abc
-Revises: fcae66ea5e4b
-Create Date: 2026-09-22
+Revision ID: d0d0face0001
+Revises: c0ffee123abc
+Create Date: 2026-09-30
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = "c0ffee123abc"
-down_revision: Union[str, Sequence[str], None] = "fcae66ea5e4b"
+revision: str = "d0d0face0001"
+down_revision: Union[str, Sequence[str], None] = "c0ffee123abc"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column("characters", sa.Column("reference_sheet_url", sa.Text(), nullable=True))
-    op.add_column("characters", sa.Column("visual_prompt", sa.Text(), nullable=True))
+    op.create_table(
+        "lipsync_jobs",
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("project_id", sa.String(36), sa.ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("status", sa.String(50), nullable=False, server_default="PENDING"),
+        sa.Column("stage", sa.String(50), nullable=True),
+        sa.Column("video_source", sa.Text(), nullable=False),
+        sa.Column("trim_start", sa.Float(), nullable=False),
+        sa.Column("trim_end", sa.Float(), nullable=False),
+        sa.Column("audio_path", sa.Text(), nullable=False),
+        sa.Column("output_path", sa.Text(), nullable=True),
+        sa.Column("shot_id", sa.String(36), sa.ForeignKey("shots.id", ondelete="SET NULL"), nullable=True),
+        sa.Column("error", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("completed_at", sa.DateTime(timezone=True), nullable=True),
+    )
 
 
 def downgrade() -> None:
-    op.drop_column("characters", "visual_prompt")
-    op.drop_column("characters", "reference_sheet_url")
+    op.drop_table("lipsync_jobs")
 ```
+
+- [ ] **Step 6: Update conftest**
+
+In `tests/conftest.py` add after `CREATE_SHOOTS`:
+
+```python
+CREATE_LIPSYNC_JOBS = """
+CREATE TABLE IF NOT EXISTS lipsync_jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    stage VARCHAR(50),
+    video_source TEXT NOT NULL,
+    trim_start REAL NOT NULL,
+    trim_end REAL NOT NULL,
+    audio_path TEXT NOT NULL,
+    output_path TEXT,
+    shot_id TEXT,
+    error TEXT,
+    created_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+)
+"""
+```
+
+And in the `client` fixture after `CREATE_SHOOTS`: `await conn.execute(text(CREATE_LIPSYNC_JOBS))`.
 
 - [ ] **Step 7: Run tests to verify pass**
 
-Run: `python -m pytest tests/test_models/test_models.py -v`
+Run: `python -m pytest tests/test_models/test_lipsync_job.py tests/test_api/test_reference_sheet.py -v`
 Expected: PASS
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add app/models/character.py app/schemas/character.py tests/conftest.py tests/test_models/test_models.py alembic/versions/add_character_reference_fields.py
-git commit -m "feat: add character reference_sheet_url and visual_prompt fields"
+git add app/models/lipsync_job.py app/models/__init__.py app/schemas/lipsync.py alembic/versions/add_lipsync_jobs.py tests/conftest.py tests/test_models/test_lipsync_job.py
+git commit -m "feat: add lipsync_jobs model, schema, migration"
 ```
-
----
 

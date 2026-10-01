@@ -1,167 +1,158 @@
-### Task 3: Reference sheet upload/DELETE routes
+### Task 3: Lipsync pipeline service (ffmpeg trim + job runner)
 
 **Files:**
-- Create: `app/api/routes/reference_sheet.py`
-- Modify: `app/main.py` (include router)
-- Test: `tests/test_api/test_reference_sheet.py`
+- Create: `app/services/lipsync_pipeline.py`
+- Test: `tests/test_services/test_lipsync_pipeline.py`
 
 **Interfaces:**
-- Consumes: `Character.reference_sheet_url` (Task 1).
-- Produces:
-  - `POST /api/v1/characters/{character_id}/reference-sheet` (multipart `file`) → `CharacterRead`
-  - `DELETE /api/v1/characters/{character_id}/reference-sheet` → `CharacterRead`
-  - Files under `uploads/reference_sheets/`; URL `/uploads/reference_sheets/{filename}` (already mounted in `main.py`).
+- Produces: `probe_duration(path) -> float`, `trim_media(src, start, end, dst) -> str`, `run_job_sync(job_id: str, session_factory, project_root: Path) -> None`, `async run_job(job_id, session_factory) -> None`.
+- Consumes: `LipsyncJob`, `MuseTalkClient.align_lip_sync(strict=True)`, `settings.musetalk_timeout`.
 
 - [ ] **Step 1: Write failing tests**
 
-Create `tests/test_api/test_reference_sheet.py`:
+Create `tests/test_services/test_lipsync_pipeline.py`:
 
 ```python
-import io
+import asyncio
+from unittest.mock import MagicMock, patch
+
+import pytest
+from sqlalchemy import text
+
+from app.services import lipsync_pipeline as lp
 
 
-async def test_upload_and_delete_reference_sheet(client, tmp_path, monkeypatch):
-    import app.api.routes.reference_sheet as rs
-
-    monkeypatch.setattr(rs, "UPLOAD_DIR", tmp_path)
-    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
-    char = (
-        await client.post(
-            f"/api/v1/projects/{proj['id']}/characters",
-            json={"name": "Hero"},
-        )
-    ).json()
-
-    resp = await client.post(
-        f"/api/v1/characters/{char['id']}/reference-sheet",
-        files={"file": ("sheet.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
-    )
-    assert resp.status_code == 200
-    url = resp.json()["reference_sheet_url"]
-    assert url.startswith("/uploads/reference_sheets/")
-
-    resp = await client.delete(f"/api/v1/characters/{char['id']}/reference-sheet")
-    assert resp.status_code == 200
-    assert resp.json()["reference_sheet_url"] is None
+def test_probe_duration_uses_ffprobe():
+    with patch("subprocess.run") as run:
+        run.return_value = MagicMock(stdout='{"format": {"duration": "12.5"}}', returncode=0)
+        assert lp.probe_duration("/x/v.mp4") == 12.5
+        assert run.call_args.args[0][0] == "ffprobe"
 
 
-async def test_upload_rejects_non_image(client):
-    proj = (await client.post("/api/v1/projects", json={"title": "F"})).json()
-    char = (
-        await client.post(
-            f"/api/v1/projects/{proj['id']}/characters",
-            json={"name": "Hero"},
-        )
-    ).json()
-    resp = await client.post(
-        f"/api/v1/characters/{char['id']}/reference-sheet",
-        files={"file": ("evil.txt", io.BytesIO(b"hello"), "text/plain")},
-    )
-    assert resp.status_code == 400
+def test_trim_audio_shorter_than_selection_raises(tmp_path):
+    audio = tmp_path / "short.wav"
+    audio.write_bytes(b"RIFF")
+    with patch.object(lp, "probe_duration", return_value=1.0):
+        with pytest.raises(ValueError, match="audio shorter than selection"):
+            lp.trim_media(str(audio), 0.0, 5.0, str(tmp_path / "out.wav"))
 
 
-async def test_upload_character_not_found(client):
-    resp = await client.post(
-        "/api/v1/characters/00000000-0000-0000-0000-000000000099/reference-sheet",
-        files={"file": ("s.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
-    )
-    assert resp.status_code == 404
+def _make_job_row(job_id="j1", status="PENDING", stage=None):
+    return {
+        "id": job_id, "status": status, "stage": stage,
+        "video_source": "workspace/shots/v.mp4", "trim_start": 0.0, "trim_end": 3.0,
+        "audio_path": "workspace/audio/a.wav", "output_path": None,
+        "error": None,
+    }
+
+
+def test_run_job_sync_sets_failed_on_error():
+    session_factory = MagicMock()
+    session = MagicMock()
+    session_factory.return_value.__enter__ = MagicMock(return_value=session)
+    session_factory.return_value.__exit__ = MagicMock(return_value=False)
+
+    def execute_scalars_first(stmt):
+        return _make_job_row()
+
+    session.execute_scalars.return_value.first.side_effect = execute_scalars_first
+    session.commit = MagicMock()
+
+    with (
+        patch.object(lp, "probe_duration", side_effect=ValueError("audio shorter than selection")),
+        patch.object(lp.asyncio, "sleep", new=MagicMock()),
+    ):
+        lp.run_job_sync("j1", session_factory, project_root=None)
+
+    update = session.execute.call_args.args[0]
+    params = update.compile().params if hasattr(update, "compile") else {}
+    assert "FAILED" in str(update) or params.get("status") == "FAILED"
+
+
+def test_run_job_async_delegates_to_thread():
+    with patch.object(lp.asyncio, "to_thread", new=MagicMock(return_value=None)) as to_thread:
+        asyncio.run(lp.run_job("abc", MagicMock()))
+        to_thread.assert_called_once()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+Note: the DB-assertion approach in `test_run_job_sync_sets_failed_on_error` is brittle — if awkward, simplify by patching `_load_job`/`_finish_job` helpers (recommended: structure `lipsync_pipeline.py` with thin `_load_job(session, job_id)` and `_finish_job(session, job_id, status, output_path=None, error=None)` helpers so tests can assert on those calls directly instead of compiling SQLAlchemy statements).
 
-Run: `python -m pytest tests/test_api/test_reference_sheet.py -v`
-Expected: FAIL (404/405 — no route)
+- [ ] **Step 2: Run tests to verify failure**
 
-- [ ] **Step 3: Implement route module**
+Run: `python -m pytest tests/test_services/test_lipsync_pipeline.py -v`
+Expected: FAIL (`ModuleNotFoundError`)
 
-Create `app/api/routes/reference_sheet.py`:
+- [ ] **Step 3: Implement `app/services/lipsync_pipeline.py`**
 
 ```python
-import uuid as uuid_mod
+import asyncio
+import json
+import subprocess
+import uuid
+from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.config import settings
+from app.services.musetalk_client import MuseTalkClient
 
-from app.api.deps import get_db
-from app.models.character import Character
-
-router = APIRouter(tags=["reference-sheet"])
-
-UPLOAD_DIR = Path("uploads/reference_sheets")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-ALLOWED_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
-MAX_BYTES = 5 * 1024 * 1024
+OUTPUT_DIR_RELATIVE = "workspace/lipsync"
+WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
 
-@router.post("/characters/{character_id}/reference-sheet")
-async def upload_reference_sheet(
-    character_id: uuid_mod.UUID,
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-):
-    char = await db.get(Character, character_id)
-    if not char:
-        raise HTTPException(status_code=404, detail="Character not found")
-    if file.content_type not in ALLOWED_TYPES:
-        raise HTTPException(status_code=400, detail="File must be an image")
-    content = await file.read()
-    if len(content) > MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Image too large (max 5MB)")
-
-    if char.reference_sheet_url:
-        old = Path(char.reference_sheet_url.lstrip("/"))
-        if old.exists():
-            old.unlink()
-
-    ext = Path(file.filename or "sheet.png").suffix or ".png"
-    filename = f"{uuid_mod.uuid4()}{ext}"
-    (UPLOAD_DIR / filename).write_bytes(content)
-    char.reference_sheet_url = f"/uploads/reference_sheets/{filename}"
-    await db.commit()
-    await db.refresh(char)
-    return char
+def probe_duration(path: str) -> float:
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"ffprobe failed for {path}")
+    data = json.loads(result.stdout or "{}")
+    duration = float(data.get("format", {}).get("duration", 0.0))
+    if duration <= 0:
+        raise ValueError(f"could not determine duration of {path}")
+    return duration
 
 
-@router.delete("/characters/{character_id}/reference-sheet")
-async def delete_reference_sheet(
-    character_id: uuid_mod.UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    char = await db.get(Character, character_id)
-    if not char:
-        raise HTTPException(status_code=404, detail="Character not found")
-    if char.reference_sheet_url:
-        path = Path(char.reference_sheet_url.lstrip("/"))
-        if path.exists():
-            path.unlink()
-        char.reference_sheet_url = None
-        await db.commit()
-        await db.refresh(char)
-    return char
+def trim_media(src: str, start: float, end: float, dst: str) -> str:
+    if src.lower().endswith((".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg")):
+        src_duration = probe_duration(src)
+        if src_duration < (end - start) - 0.05:
+            raise ValueError("audio shorter than selection")
+        subprocess.run(
+            ["ffmpeg", "-y", "-ss", str(start), "-t", str(end - start), "-i", src, dst],
+            check=True, capture_output=True,
+        )
+    else:
+        subprocess.run(
+            ["ffmpeg", "-y", "-ss", str(start), "-to", str(end), "-i", src, "-c", "copy", dst],
+            check=True, capture_output=True,
+        )
+    return dst
 ```
 
-- [ ] **Step 4: Register in main.py**
+Then `run_job_sync(job_id, session_factory, project_root)`:
 
-Add `reference_sheet` to imports; after anchor_faces include:
+1. Open session; `_load_job` → row via `select(LipsyncJob).where(LipsyncJob.id == ...)`. If missing → return.
+2. Set `status="RUNNING"`, `stage="TRIMMING"`; commit; flush errors → `_finish_job(..., status="FAILED", error=...)`.
+3. Resolve `video_src = project_root / job.video_source`, `audio_src = project_root / job.audio_path` (guard: resolved path must stay under `project_root` else FAIL with `Path escapes workspace`).
+4. Trims land in `project_root/WORKSPACE_ROOT/"tmp"/f"{job_id}_video.mp4"` and `f"{job_id}_audio.wav"` (create parent dirs; note for in-memory test DB `project_root=None` is only used in failure-before-paths tests — guard ordering so path resolution happens after the ValueError-prone audio trim probe **or** skip path guard when `project_root is None` in tests).
+5. `stage="INFERRING"`; commit; `MuseTalkClient(musetalk_dir=...)` → `align_lip_sync(trimmed_video, trimmed_audio, config, output_filename=f"{job_id}.mp4", strict=True)` wrapped with `settings.musetalk_timeout` via `asyncio.wait_for` — but since this runs **in a thread**, use `subprocess` timeout already handled by client config; ensure client config passes timeout. On `Exception` → FAILED with `str(e)` truncated to 2000 chars.
+6. `stage="FINALIZING"`; move output to `project_root/workspace/lipsync/lipsync_{job_id}.mp4`; `_finish_job(status="DONE", output_path="workspace/lipsync/lipsync_{job_id}.mp4")`.
+7. Cleanup temp trims in `finally` (best-effort `unlink(missing_ok=True)`).
+8. All status writes: set `completed_at=datetime.utcnow()` when terminal.
 
-```python
-    app.include_router(reference_sheet.router, prefix="/api/v1")
-```
+`async run_job(job_id: str, session_factory) -> None`: `await asyncio.to_thread(run_job_sync, job_id, session_factory, WORKSPACE_ROOT)` — module-level function so routes can monkeypatch `lipsync_pipeline.run_job`.
 
-- [ ] **Step 5: Run tests**
+- [ ] **Step 4: Run tests to verify pass**
 
-Run: `python -m pytest tests/test_api/test_reference_sheet.py tests/test_api/test_characters.py -v`
+Run: `python -m pytest tests/test_services/test_lipsync_pipeline.py -q`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add app/api/routes/reference_sheet.py app/main.py tests/test_api/test_reference_sheet.py
-git commit -m "feat: character reference sheet upload and delete endpoints"
+git add app/services/lipsync_pipeline.py tests/test_services/test_lipsync_pipeline.py
+git commit -m "feat: lipsync pipeline with ffmpeg trim and strict MuseTalk run"
 ```
-
----
 
