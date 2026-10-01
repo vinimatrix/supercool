@@ -1,15 +1,17 @@
 import React from 'react';
 import { useStudioContext } from '../../context/StudioContext';
+import type { StudioTab } from '../../context/StudioContext';
 
 export const TabNavigator: React.FC = () => {
   const { activeTab, setActiveTab } = useStudioContext();
 
-  const tabs: { id: 'story' | 'qa' | 'analytics' | 'youtube' | 'drift'; label: string }[] = [
+  const tabs: { id: StudioTab; label: string }[] = [
     { id: 'story', label: 'Assets' },
     { id: 'qa', label: 'QA' },
     { id: 'analytics', label: 'Data' },
     { id: 'youtube', label: 'YT' },
     { id: 'drift', label: 'Drift' },
+    { id: 'lipsync', label: 'Lip' },
   ];
 
   return (

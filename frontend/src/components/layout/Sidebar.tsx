@@ -6,6 +6,7 @@ import { QAMonitor } from '../analytics/QAMonitor';
 import { AnalyticsPanel } from '../analytics/AnalyticsPanel';
 import { YouTubeConnect, YouTubeDashboard, YouTubeAIReport } from '../youtube';
 import { DriftPanel } from '../DriftPanel';
+import { LipsyncPanel } from '../lipsync/LipsyncPanel';
 import { useStudioContext } from '../../context/StudioContext';
 import { youtubeApi } from '../../api/youtube';
 import type { ChannelStats, VideoMetrics, AnalysisReport } from '../../api/youtube';
@@ -109,6 +110,7 @@ export const Sidebar: React.FC = () => {
         {activeTab === 'drift' && (
           <DriftPanel editPlan={editPlan} onPlanExecuted={handlePlanExecuted} />
         )}
+        {activeTab === 'lipsync' && <LipsyncPanel />}
       </div>
       <PanelDivider
         {...dividerProps}

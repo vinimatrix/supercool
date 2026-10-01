@@ -88,6 +88,12 @@ describe('App', () => {
     expect(screen.getByText('Drift')).toBeInTheDocument();
   });
 
+  it('renders the Lip tab', async () => {
+    render(<App />);
+
+    expect(screen.getByText('Lip')).toBeInTheDocument();
+  });
+
   it('renders the Command Center', async () => {
     render(<App />);
 
