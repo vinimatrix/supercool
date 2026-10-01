@@ -30,18 +30,19 @@ class LipSyncConfig:
 class MuseTalkClient:
     """Client for MuseTalk 1.5 lip-sync engine."""
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: Optional[str] = None, musetalk_dir: Optional[str] = None):
         self.output_dir = Path("./workspace/lipsync")
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.musetalk_dir = os.path.abspath(musetalk_dir) if musetalk_dir else MUSOTALK_DIR
 
     def _run_musetalk(self, args: list[str], timeout: int = 600) -> subprocess.CompletedProcess:
         """Run MuseTalk inference script with proper PYTHONPATH."""
         env = os.environ.copy()
         pythonpath = env.get("PYTHONPATH", "")
-        env["PYTHONPATH"] = f"{MUSOTALK_DIR};{pythonpath}" if pythonpath else MUSOTALK_DIR
+        env["PYTHONPATH"] = f"{self.musetalk_dir};{pythonpath}" if pythonpath else self.musetalk_dir
         env["TORCHDYNAMO_DISABLE"] = "1"
 
-        cmd = ["python", os.path.join(MUSOTALK_DIR, "scripts", "inference.py")] + args
+        cmd = ["python", os.path.join(self.musetalk_dir, "scripts", "inference.py")] + args
         logger.info("Running MuseTalk: %s", " ".join(cmd))
         return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
 
@@ -76,6 +77,7 @@ class MuseTalkClient:
         audio_path: str,
         config: LipSyncConfig,
         output_filename: Optional[str] = None,
+        strict: bool = False,
     ) -> str:
         if output_filename is None:
             output_filename = f"lipsync_{uuid.uuid4().hex[:8]}.mp4"
@@ -107,16 +109,25 @@ class MuseTalkClient:
                 ], timeout=600)
 
                 if result.returncode != 0:
+                    if strict:
+                        detail = (result.stderr or result.stdout or "").strip()
+                        raise RuntimeError(f"MuseTalk failed: {detail[-500:]}")
                     logger.warning("MuseTalk stderr: %s", result.stderr[-500:])
 
                 for mp4 in Path(tmpdir).rglob("*.mp4"):
                     shutil.copy2(str(mp4), str(output_path))
                     break
                 else:
+                    if strict:
+                        raise RuntimeError("MuseTalk produced no output video")
                     logger.warning("No output video found, copying source")
                     shutil.copy2(video_path, str(output_path))
 
             except Exception as e:
+                if strict:
+                    if isinstance(e, RuntimeError):
+                        raise
+                    raise RuntimeError(f"MuseTalk failed: {e}") from e
                 logger.error("MuseTalk lip-sync failed: %s", e)
                 shutil.copy2(video_path, str(output_path))
 

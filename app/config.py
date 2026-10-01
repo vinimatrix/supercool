@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     local_models_enabled: bool = True
     qwen_backend: str = "auto"  # auto|ollama|llama_cpp
 
+    # MuseTalk lipsync
+    musetalk_dir: str = ""
+    musetalk_timeout: int = 3600
+
     # DaVinci Resolve MCP
     davinci_mcp_command: str = "npx davinci-resolve-mcp"
     davinci_mcp_host: str = "localhost"
