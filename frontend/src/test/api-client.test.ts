@@ -124,3 +124,84 @@ describe('charactersApi reference sheet', () => {
     expect(spy).toHaveBeenCalledWith('/characters/c1/reference-sheet');
   });
 });
+
+describe('lipsyncApi', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('listVideos calls GET /lipsync/videos with project filter', async () => {
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({ data: [] } as any);
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.listVideos('p1');
+    expect(spy).toHaveBeenCalledWith('/lipsync/videos', { params: { project_id: 'p1' } });
+  });
+
+  it('listAudios calls GET /lipsync/audios without params when no project', async () => {
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({ data: [] } as any);
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.listAudios();
+    expect(spy).toHaveBeenCalledWith('/lipsync/audios', { params: undefined });
+  });
+
+  it('uploadVideo posts multipart form data with project param', async () => {
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({ data: {} } as any);
+    const file = new File(['x'], 'v.mp4', { type: 'video/mp4' });
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.uploadVideo('p1', file);
+    expect(spy).toHaveBeenCalledWith(
+      '/lipsync/videos',
+      expect.any(FormData),
+      expect.objectContaining({
+        headers: { 'Content-Type': 'multipart/form-data' },
+        params: { project_id: 'p1' },
+      })
+    );
+  });
+
+  it('uploadAudio posts multipart form data', async () => {
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({ data: {} } as any);
+    const file = new File(['x'], 'a.wav', { type: 'audio/wav' });
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.uploadAudio(undefined, file);
+    expect(spy).toHaveBeenCalledWith(
+      '/lipsync/audios',
+      expect.any(FormData),
+      expect.objectContaining({ headers: { 'Content-Type': 'multipart/form-data' } })
+    );
+  });
+
+  it('createJob calls POST /lipsync/jobs with the payload', async () => {
+    const body = {
+      project_id: 'p1',
+      video_path: 'workspace/shots/v.mp4',
+      trim_start: 0,
+      trim_end: 3,
+      audio_path: 'workspace/audio/a.wav',
+    };
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({ data: { id: 'j1' } } as any);
+    const { lipsyncApi } = await import('../api/client');
+    const result = await lipsyncApi.createJob(body);
+    expect(spy).toHaveBeenCalledWith('/lipsync/jobs', body);
+    expect(result.data).toEqual({ id: 'j1' });
+  });
+
+  it('listJobs calls GET /lipsync/jobs with project_id', async () => {
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({ data: [] } as any);
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.listJobs('p1');
+    expect(spy).toHaveBeenCalledWith('/lipsync/jobs', { params: { project_id: 'p1' } });
+  });
+
+  it('getJob calls GET /lipsync/jobs/:id', async () => {
+    const spy = vi.spyOn(api, 'get').mockResolvedValue({ data: { id: 'j1' } } as any);
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.getJob('j1');
+    expect(spy).toHaveBeenCalledWith('/lipsync/jobs/j1');
+  });
+
+  it('assignJob calls POST /lipsync/jobs/:id/assign with shot_id', async () => {
+    const spy = vi.spyOn(api, 'post').mockResolvedValue({ data: { id: 'j1' } } as any);
+    const { lipsyncApi } = await import('../api/client');
+    await lipsyncApi.assignJob('j1', 'shot-1');
+    expect(spy).toHaveBeenCalledWith('/lipsync/jobs/j1/assign', { shot_id: 'shot-1' });
+  });
+});
