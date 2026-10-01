@@ -138,6 +138,25 @@ CREATE TABLE IF NOT EXISTS shoots (
 )
 """
 
+CREATE_LIPSYNC_JOBS = """
+CREATE TABLE IF NOT EXISTS lipsync_jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    status VARCHAR(50) DEFAULT 'PENDING',
+    stage VARCHAR(50),
+    video_source TEXT NOT NULL,
+    trim_start REAL NOT NULL,
+    trim_end REAL NOT NULL,
+    audio_path TEXT NOT NULL,
+    output_path TEXT,
+    shot_id TEXT,
+    error TEXT,
+    created_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+)
+"""
+
 
 @pytest.fixture
 def app():
@@ -155,6 +174,7 @@ async def client(app):
         await conn.execute(text(CREATE_SHOTS))
         await conn.execute(text(CREATE_RENDER_JOBS))
         await conn.execute(text(CREATE_SHOOTS))
+        await conn.execute(text(CREATE_LIPSYNC_JOBS))
     test_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async def override_get_db():
